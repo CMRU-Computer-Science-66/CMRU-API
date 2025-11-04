@@ -1,22 +1,41 @@
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
-import { HeaderGenerator } from "header-generator";
+import { faker } from "@faker-js/faker";
 import type { BusApi } from "./types";
 import { parseScheduleHTML, parseAvailableBusHTML, type ParsedScheduleData, type AvailableBusData } from "./bus/parser";
 import { SessionManager } from "./bus/session-manager";
 
 export class CmruBusApiClient implements BusApi {
 	private sessionManager: SessionManager;
-	private headerGenerator: HeaderGenerator;
 
 	constructor(
 		private client: AxiosInstance,
 		sessionKey: string = "default",
 	) {
 		this.sessionManager = SessionManager.getInstance(sessionKey);
-		this.headerGenerator = new HeaderGenerator({
-			devices: ["desktop", "mobile"],
-			operatingSystems: ["android", "windows"],
-		});
+	}
+
+	private generateHeaders(): Record<string, string> {
+		const userAgents = [
+			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+			"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+			"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+		];
+
+		return {
+			"User-Agent": faker.helpers.arrayElement(userAgents),
+			Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+			"Accept-Language": "en-US,en;q=0.9,th;q=0.8",
+			"Accept-Encoding": "gzip, deflate, br",
+			"Sec-Ch-Ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+			"Sec-Ch-Ua-Mobile": "?0",
+			"Sec-Ch-Ua-Platform": '"Windows"',
+			"Sec-Fetch-Dest": "document",
+			"Sec-Fetch-Mode": "navigate",
+			"Sec-Fetch-Site": "none",
+			"Sec-Fetch-User": "?1",
+			"Upgrade-Insecure-Requests": "1",
+		};
 	}
 
 	async login<T = unknown>(username: string, password: string): Promise<AxiosResponse<T>> {
@@ -88,9 +107,7 @@ export class CmruBusApiClient implements BusApi {
 		const data = `${username}:||:${password}:||:1`;
 		const encodedData = encodeURIComponent(data);
 
-		const headers = this.headerGenerator.getHeaders({
-			httpVersion: "2",
-		});
+		const headers = this.generateHeaders();
 
 		const config: AxiosRequestConfig = {
 			withCredentials: true,
@@ -144,9 +161,7 @@ export class CmruBusApiClient implements BusApi {
 
 		const cookieString = this.formatCookies(cookiesToUse);
 
-		const headers = this.headerGenerator.getHeaders({
-			httpVersion: "2",
-		});
+		const headers = this.generateHeaders();
 
 		const config: AxiosRequestConfig = {
 			withCredentials: true,
@@ -204,9 +219,7 @@ export class CmruBusApiClient implements BusApi {
 
 		const cookieString = this.formatCookies(cookiesToUse);
 
-		const headers = this.headerGenerator.getHeaders({
-			httpVersion: "2",
-		});
+		const headers = this.generateHeaders();
 
 		const config: AxiosRequestConfig = {
 			withCredentials: true,
@@ -246,9 +259,7 @@ export class CmruBusApiClient implements BusApi {
 
 		const cookieString = this.formatCookies(cookiesToUse);
 
-		const headers = this.headerGenerator.getHeaders({
-			httpVersion: "2",
-		});
+		const headers = this.generateHeaders();
 
 		const config: AxiosRequestConfig = {
 			withCredentials: true,
@@ -296,9 +307,7 @@ export class CmruBusApiClient implements BusApi {
 
 		const cookieString = this.formatCookies(cookiesToUse);
 
-		const headers = this.headerGenerator.getHeaders({
-			httpVersion: "2",
-		});
+		const headers = this.generateHeaders();
 
 		const config: AxiosRequestConfig = {
 			withCredentials: true,
@@ -350,9 +359,7 @@ export class CmruBusApiClient implements BusApi {
 
 		const cookieString = this.formatCookies(cookiesToUse);
 
-		const headers = this.headerGenerator.getHeaders({
-			httpVersion: "2",
-		});
+		const headers = this.generateHeaders();
 
 		const config: AxiosRequestConfig = {
 			withCredentials: true,
