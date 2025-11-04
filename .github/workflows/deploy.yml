@@ -12,6 +12,16 @@ on:
                     - patch
                     - minor
                     - major
+                    - none
+            deploy_target:
+                description: "Deploy target"
+                required: true
+                default: "both"
+                type: choice
+                options:
+                    - both
+                    - npm
+                    - github
 
 jobs:
     deploy:
@@ -42,14 +52,6 @@ jobs:
             - name: Install dependencies
               run: bun install
 
-            - name: Install jq for JSON processing
-              run: sudo apt-get update && sudo apt-get install -y jq
-
-            - name: Configure Git
-              run: |
-                  git config --global user.name "github-actions[bot]"
-                  git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
             - name: Build package
               run: bun run build
 
@@ -57,6 +59,7 @@ jobs:
               run: bun run lint
 
             - name: Bump version
+              if: github.event.inputs.version_type != 'none'
               run: bun bump ${{ github.event.inputs.version_type }}
 
             - name: Get package version
@@ -67,6 +70,7 @@ jobs:
               run: bun run docs
 
             - name: Publish to NPM Packages
+              if: github.event.inputs.deploy_target == 'npm' || github.event.inputs.deploy_target == 'both'
               run: |
                   echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
                   bun publish --registry https://registry.npmjs.org
@@ -75,6 +79,7 @@ jobs:
                   NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
 
             - name: Publish to GitHub Packages
+              if: github.event.inputs.deploy_target == 'github' || github.event.inputs.deploy_target == 'both'
               run: |
                   bun pm pkg set name=@cmru-computer-science-66/cmru-api
                   echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" > ~/.npmrc
