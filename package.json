@@ -1,0 +1,84 @@
+{
+	"name": "@cmru-comsci-66/cmru-api",
+	"version": "0.0.0",
+	"description": "CMRU API client package based on axios",
+	"keywords": [
+		"api",
+		"axios",
+		"cmru",
+		"client"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/CMRU-Computer-Science-66/CMRU-API.git"
+	},
+	"license": "MIT",
+	"author": "Faelayis <48393914+Faelayis@users.noreply.github.com>",
+	"type": "module",
+	"exports": {
+		".": {
+			"import": {
+				"types": "./dist/index.d.ts",
+				"default": "./dist/index.js"
+			},
+			"require": {
+				"types": "./dist/index.d.cts",
+				"default": "./dist/index.cjs"
+			}
+		}
+	},
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsup",
+		"docs": "typedoc",
+		"fix": "eslint . --fix",
+		"lint": "eslint .",
+		"prepare": "bun run build",
+		"prepublishOnly": "bun run build && bun run lint",
+		"prettier": "prettier --write . --ignore-unknown",
+		"release": "np",
+		"release:major": "np major",
+		"release:minor": "np minor",
+		"release:patch": "np patch",
+		"version": "bun run build && bun run docs && git add -A public"
+	},
+	"dependencies": {
+		"axios": "^1.13.1",
+		"cheerio": "^1.1.2",
+		"header-generator": "^2.1.76"
+	},
+	"devDependencies": {
+		"@eslint/compat": "1.4.1",
+		"@eslint/js": "9.39.1",
+		"@types/bun": "latest",
+		"@types/cheerio": "1.0.0",
+		"@typescript-eslint/eslint-plugin": "8.46.3",
+		"@typescript-eslint/parser": "8.46.3",
+		"eslint": "9.39.1",
+		"eslint-config-prettier": "10.1.8",
+		"eslint-plugin-prettier": "5.5.4",
+		"eslint-plugin-unicorn": "62.0.0",
+		"jiti": "2.6.1",
+		"np": "10.2.0",
+		"prettier": "3.6.2",
+		"prettier-plugin-packagejson": "^2.5.19",
+		"prettier-plugin-sort-json": "^4.1.1",
+		"puppeteer": "24.28.0",
+		"tsup": "8.5.0",
+		"typedoc": "0.28.14",
+		"typescript": "5.9.3",
+		"typescript-eslint": "8.46.3"
+	},
+	"peerDependencies": {
+		"typescript": "^5.9.3"
+	},
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org"
+	}
+}
