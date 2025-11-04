@@ -1,6 +1,6 @@
 {
 	"name": "@cmru-comsci-66/cmru-api",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "CMRU API client package based on axios",
 	"keywords": [
 		"api",
