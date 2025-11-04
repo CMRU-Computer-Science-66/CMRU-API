@@ -59,7 +59,7 @@ jobs:
             - name: Deploy to npm registry
               run: |
                   echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-                  npx np ${{ github.event.inputs.version_type }} --no-interactive --no-cleanup
+                  bunx np ${{ github.event.inputs.version_type }} --no-interactive --no-cleanup
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
                   NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -84,6 +84,6 @@ jobs:
               run: |
                   echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > ~/.npmrc
                   echo "@cmru-comsci-66:registry=https://npm.pkg.github.com" >> ~/.npmrc
-                  npm publish
+                  bun publish
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
