@@ -65,6 +65,12 @@ jobs:
             - name: Generate documentation
               run: bun run docs
 
+            - name: Backup package.json
+              run: cp package.json package.json.backup
+
+            - name: Clean package.json for publish
+              run: bun pm pkg delete scripts devDependencies packageManager
+
             - name: Publish to NPM Packages
               if: github.event.inputs.deploy_target == 'npm' || github.event.inputs.deploy_target == 'both'
               run: |
@@ -78,7 +84,9 @@ jobs:
                   echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" > ~/.npmrc
                   echo "@cmru-computer-science-66:registry=https://npm.pkg.github.com" >> ~/.npmrc
                   npm publish --registry https://npm.pkg.github.com
-                  bun pm pkg set name=@cmru-comsci-66/cmru-api
+
+            - name: Restore package.json
+              run: mv package.json.backup package.json
 
             - name: Automatically Commit Changes
               uses: stefanzweifel/git-auto-commit-action@v7

@@ -1,7 +1,6 @@
 {
 	"name": "@cmru-comsci-66/cmru-api",
 	"version": "0.1.0",
-	"description": "CMRU API client package based on axios",
 	"keywords": [
 		"api",
 		"axios",
@@ -56,10 +55,10 @@
 	],
 	"scripts": {
 		"build": "tsup",
+		"dev": "tsup  --watch",
 		"docs": "typedoc",
 		"fix": "eslint . --fix",
 		"lint": "eslint .",
-		"prepare": "bun run build",
 		"prettier": "prettier --write . --ignore-unknown"
 	},
 	"dependencies": {

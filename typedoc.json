@@ -9,7 +9,6 @@
 	"excludeProtected": false,
 	"excludeExternals": true,
 	"readme": "README.md",
-	"name": "CMRU API",
 	"includeVersion": true,
 	"sort": [
 		"source-order"
@@ -17,5 +16,6 @@
 	"categorizeByGroup": true,
 	"navigationLinks": {
 		"GitHub": "https://github.com/CMRU-Computer-Science-66/CMRU-API"
-	}
+	},
+	"hideGenerator": true
 }
