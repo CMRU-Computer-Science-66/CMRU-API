@@ -55,7 +55,7 @@
 	],
 	"scripts": {
 		"build": "tsup",
-		"dev": "tsup  --watch",
+		"dev": "tsup --watch . --onSuccess 'bun run test.ts'",
 		"docs": "typedoc",
 		"fix": "eslint . --fix",
 		"preinstall": "npx only-allow bun",

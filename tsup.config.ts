@@ -1,6 +1,22 @@
-import { defineConfig } from "tsup";
+import { defineConfig, type Options } from "tsup";
 
-export default defineConfig([
+const isWatch = process.argv.includes("--watch");
+
+const neutralConfig: Options = {
+	entry: ["src/api/index.ts"],
+	format: ["cjs", "esm"],
+	dts: false,
+	splitting: false,
+	sourcemap: true,
+	clean: false,
+	treeshake: true,
+	minify: false,
+	outDir: "dist/neutral",
+	external: ["axios", "cheerio"],
+	platform: "neutral",
+};
+
+const allConfigs: Options[] = [
 	{
 		entry: ["src/api/index.ts"],
 		format: ["cjs", "esm"],
@@ -28,17 +44,7 @@ export default defineConfig([
 		platform: "browser",
 		globalName: "CmruApi",
 	},
-	{
-		entry: ["src/api/index.ts"],
-		format: ["cjs", "esm"],
-		dts: false,
-		splitting: false,
-		sourcemap: true,
-		clean: false,
-		treeshake: true,
-		minify: false,
-		outDir: "dist/neutral",
-		external: ["axios", "cheerio"],
-		platform: "neutral",
-	},
-]);
+	neutralConfig,
+];
+
+export default defineConfig(isWatch ? [neutralConfig] : allConfigs);
