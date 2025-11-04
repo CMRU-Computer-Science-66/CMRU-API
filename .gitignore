@@ -11,6 +11,9 @@ dist
 .env.production.local
 .env.local
 
+# npm configuration
+.npmrc
+
 #
 public/.nojekyll
 public
