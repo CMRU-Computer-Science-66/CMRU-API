@@ -38,16 +38,10 @@ jobs:
                   fetch-depth: 0
                   token: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Setup Node.js
-              uses: actions/setup-node@v4
-              with:
-                  node-version: "20"
-                  registry-url: "https://registry.npmjs.org"
-
             - name: Setup Bun
-              uses: oven-sh/setup-bun@v1
+              uses: oven-sh/setup-bun@v2
               with:
-                  bun-version: latest
+                  bun-version-file: "package.json"
 
             - name: Install dependencies
               run: bun install
@@ -86,6 +80,8 @@ jobs:
                   echo "@cmru-computer-science-66:registry=https://npm.pkg.github.com" >> ~/.npmrc
                   bun publish --registry https://npm.pkg.github.com
                   bun pm pkg set name=@cmru-comsci-66/cmru-api
+              env:
+                  NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
 
             - name: Automatically Commit Changes
               uses: stefanzweifel/git-auto-commit-action@v7
