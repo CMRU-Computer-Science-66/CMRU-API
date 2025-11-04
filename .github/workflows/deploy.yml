@@ -35,7 +35,7 @@ jobs:
             BUN_AUTH_TOKEN: ${{ secrets.GH_TOKEN }}
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
               with:
                   fetch-depth: 0
                   token: ${{ secrets.GITHUB_TOKEN }}
@@ -96,15 +96,47 @@ jobs:
                   commit_message: "Release v${{ steps.package-version.outputs.version }}"
                   skip_checkout: true
 
+            - name: Generate changelog
+              id: changelog
+              run: |
+                  PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+                  if [ -z "$PREVIOUS_TAG" ]; then
+                    CHANGELOG="Initial release"
+                    echo "previous_tag=" >> $GITHUB_OUTPUT
+                  else
+                    ALL_COMMITS=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"* %s by @%an (%h)" --no-merges | grep -v "^* Release v")
+                    ADD_COMMITS=$(echo "$ALL_COMMITS" | grep "^* Add " || true)
+                    UPDATE_COMMITS=$(echo "$ALL_COMMITS" | grep "^* Update " || true)
+                    FIX_COMMITS=$(echo "$ALL_COMMITS" | grep "^* Fix " || true)
+                    OTHER_COMMITS=$(echo "$ALL_COMMITS" | grep -v "^* Add " | grep -v "^* Update " | grep -v "^* Fix " || true)
+                    
+                    CHANGELOG=""
+                    [ -n "$ADD_COMMITS" ] && CHANGELOG="$ADD_COMMITS"
+                    [ -n "$UPDATE_COMMITS" ] && CHANGELOG="$CHANGELOG"$'\n'"$UPDATE_COMMITS"
+                    [ -n "$FIX_COMMITS" ] && CHANGELOG="$CHANGELOG"$'\n'"$FIX_COMMITS"
+                    [ -n "$OTHER_COMMITS" ] && CHANGELOG="$CHANGELOG"$'\n'"$OTHER_COMMITS"
+                    
+                    CHANGELOG=$(echo "$CHANGELOG" | sed '/^$/d')
+                    echo "previous_tag=${PREVIOUS_TAG}" >> $GITHUB_OUTPUT
+                  fi
+                  echo "changelog<<EOF" >> $GITHUB_OUTPUT
+                  echo "$CHANGELOG" >> $GITHUB_OUTPUT
+                  echo "EOF" >> $GITHUB_OUTPUT
+
             - name: Create GitHub Release
               uses: softprops/action-gh-release@v2
               with:
                   tag_name: v${{ steps.package-version.outputs.version }}
-                  name: v${{ steps.package-version.outputs.version }}
+                  name: Release v${{ steps.package-version.outputs.version }}
+                  body: |
+                      ## ✨ What's Changed
+
+                      ${{ steps.changelog.outputs.changelog }}
+
+                      ${{ steps.changelog.outputs.previous_tag && format('**Full Changelog**: https://github.com/{0}/compare/{1}...v{2}', github.repository, steps.changelog.outputs.previous_tag, steps.package-version.outputs.version) || '' }}
                   draft: false
                   prerelease: false
                   token: ${{ secrets.GH_TOKEN }}
-                  generate_release_notes: true
 
             - name: Deploy documentation to docs branch
               uses: peaceiris/actions-gh-pages@v4.0.0
