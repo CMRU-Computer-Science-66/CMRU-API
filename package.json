@@ -8,28 +8,49 @@
 		"cmru",
 		"client"
 	],
+	"homepage": "https://github.com/CMRU-Computer-Science-66/CMRU-API#readme",
+	"bugs": {
+		"url": "https://github.com/CMRU-Computer-Science-66/CMRU-API/issues"
+	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/CMRU-Computer-Science-66/CMRU-API.git"
+		"url": "git+https://github.com/CMRU-Computer-Science-66/CMRU-API.git"
 	},
 	"license": "MIT",
 	"author": "Faelayis <48393914+Faelayis@users.noreply.github.com>",
 	"type": "module",
 	"exports": {
 		".": {
-			"import": {
-				"types": "./dist/index.d.ts",
-				"default": "./dist/index.js"
+			"node": {
+				"import": {
+					"types": "./dist/node/index.d.ts",
+					"default": "./dist/node/index.js"
+				},
+				"require": {
+					"types": "./dist/node/index.d.cts",
+					"default": "./dist/node/index.cjs"
+				}
 			},
-			"require": {
-				"types": "./dist/index.d.cts",
-				"default": "./dist/index.cjs"
+			"browser": {
+				"import": "./dist/browser/index.js",
+				"default": "./dist/browser/index.global.js"
+			},
+			"default": {
+				"import": {
+					"types": "./dist/node/index.d.ts",
+					"default": "./dist/neutral/index.js"
+				},
+				"require": {
+					"types": "./dist/node/index.d.cts",
+					"default": "./dist/neutral/index.cjs"
+				}
 			}
 		}
 	},
-	"main": "./dist/index.cjs",
-	"module": "./dist/index.js",
-	"types": "./dist/index.d.ts",
+	"main": "./dist/node/index.cjs",
+	"module": "./dist/node/index.js",
+	"browser": "./dist/browser/index.js",
+	"types": "./dist/node/index.d.ts",
 	"files": [
 		"dist"
 	],
@@ -42,9 +63,9 @@
 		"prettier": "prettier --write . --ignore-unknown"
 	},
 	"dependencies": {
+		"@faker-js/faker": "^9.3.0",
 		"axios": "^1.13.1",
-		"cheerio": "^1.1.2",
-		"header-generator": "^2.1.76"
+		"cheerio": "^1.1.2"
 	},
 	"devDependencies": {
 		"@eslint/compat": "1.4.1",
