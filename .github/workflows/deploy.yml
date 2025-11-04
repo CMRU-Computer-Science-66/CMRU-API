@@ -68,3 +68,22 @@ jobs:
             - name: Push changes
               run: |
                   git push origin main --tags
+
+            - name: Get package version
+              id: package-version
+              run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+            - name: Setup Node.js for GitHub Packages
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+                  registry-url: "https://npm.pkg.github.com"
+                  scope: "@cmru-comsci-66"
+
+            - name: Publish to GitHub Packages
+              run: |
+                  echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > ~/.npmrc
+                  echo "@cmru-comsci-66:registry=https://npm.pkg.github.com" >> ~/.npmrc
+                  npm publish
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
