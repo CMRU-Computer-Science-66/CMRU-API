@@ -93,9 +93,18 @@ jobs:
               with:
                   push_options: "--force"
                   commit_options: "--no-verify"
-                  tagging_message: "v${{ steps.package-version.outputs.version }}"
                   commit_message: "Release v${{ steps.package-version.outputs.version }}"
                   skip_checkout: true
+
+            - name: Create GitHub Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: v${{ steps.package-version.outputs.version }}
+                  name: v${{ steps.package-version.outputs.version }}
+                  draft: false
+                  prerelease: false
+                  token: ${{ secrets.GH_TOKEN }}
+                  generate_release_notes: true
 
             - name: Deploy documentation to docs branch
               uses: peaceiris/actions-gh-pages@v4.0.0
