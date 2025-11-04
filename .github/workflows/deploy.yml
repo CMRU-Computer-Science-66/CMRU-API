@@ -67,12 +67,16 @@ jobs:
               run: bun run docs
 
             - name: Publish to npm registry
+              env:
+                  NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
               run: |
                   echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
                   bun publish --registry https://registry.npmjs.org
                   rm ~/.npmrc
 
             - name: Publish to GitHub Packages
+              env:
+                  NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
               run: |
                   bun pm pkg set name=@cmru-computer-science-66/cmru-api
                   echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > ~/.npmrc
