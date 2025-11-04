@@ -66,20 +66,18 @@ jobs:
             - name: Generate documentation
               run: bun run docs
 
-            - name: Publish to npm registry
-              env:
-                  NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
+            - name: Publish to NPM Packages
               run: |
                   echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
                   bun publish --registry https://registry.npmjs.org
                   rm ~/.npmrc
-
-            - name: Publish to GitHub Packages
               env:
                   NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+            - name: Publish to GitHub Packages
               run: |
                   bun pm pkg set name=@cmru-computer-science-66/cmru-api
-                  echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > ~/.npmrc
+                  echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" > ~/.npmrc
                   echo "@cmru-computer-science-66:registry=https://npm.pkg.github.com" >> ~/.npmrc
                   bun publish --registry https://npm.pkg.github.com
                   bun pm pkg set name=@cmru-comsci-66/cmru-api
