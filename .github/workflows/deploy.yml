@@ -67,7 +67,6 @@ jobs:
               run: |
                   echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
                   bun publish --registry https://registry.npmjs.org
-                  rm ~/.npmrc
               env:
                   NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -75,13 +74,13 @@ jobs:
               if: github.event.inputs.deploy_target == 'github' || github.event.inputs.deploy_target == 'both'
               run: |
                   bun pm pkg set name=@cmru-computer-science-66/cmru-api
-                  echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > ~/.npmrc
+                  echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" > ~/.npmrc
                   echo "@cmru-computer-science-66:registry=https://npm.pkg.github.com" >> ~/.npmrc
                   bun publish --registry https://npm.pkg.github.com
                   bun pm pkg set name=@cmru-comsci-66/cmru-api
               env:
                   NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
-                  NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  NODE_AUTH_TOKEN: ${{ secrets.GH_TOKEN }}
 
             - name: Automatically Commit Changes
               uses: stefanzweifel/git-auto-commit-action@v7
