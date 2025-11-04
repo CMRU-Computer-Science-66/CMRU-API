@@ -96,3 +96,13 @@ jobs:
                   tagging_message: "v${{ steps.package-version.outputs.version }}"
                   commit_message: "Release v${{ steps.package-version.outputs.version }}"
                   skip_checkout: true
+
+            - name: Deploy documentation to docs branch
+              uses: peaceiris/actions-gh-pages@v4.0.0
+              with:
+                  personal_token: ${{ secrets.GH_TOKEN }}
+                  publish_dir: ./public
+                  publish_branch: docs
+                  user_name: "github-actions[bot]"
+                  user_email: "github-actions[bot]@users.noreply.github.com"
+                  enable_jekyll: true
