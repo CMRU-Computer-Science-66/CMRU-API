@@ -99,7 +99,7 @@ jobs:
             - name: Generate changelog
               id: changelog
               run: |
-                  PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+                  PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
                   if [ -z "$PREVIOUS_TAG" ]; then
                     CHANGELOG="Initial release"
                     echo "previous_tag=" >> $GITHUB_OUTPUT
