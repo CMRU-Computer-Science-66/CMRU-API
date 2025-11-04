@@ -115,6 +115,14 @@ jobs:
                   echo "$CHANGELOG" >> $GITHUB_OUTPUT
                   echo "EOF" >> $GITHUB_OUTPUT
 
+            - name: Automatically Commit Changes
+              uses: stefanzweifel/git-auto-commit-action@v7
+              with:
+                  push_options: "--force"
+                  commit_options: "--no-verify"
+                  commit_message: "Release v${{ steps.package-version.outputs.version }}"
+                  skip_checkout: true
+
             - name: Create GitHub Release
               uses: softprops/action-gh-release@v2
               with:
@@ -129,14 +137,6 @@ jobs:
                   draft: false
                   prerelease: false
                   token: ${{ secrets.GH_TOKEN }}
-
-            - name: Automatically Commit Changes
-              uses: stefanzweifel/git-auto-commit-action@v7
-              with:
-                  push_options: "--force"
-                  commit_options: "--no-verify"
-                  commit_message: "Release v${{ steps.package-version.outputs.version }}"
-                  skip_checkout: true
 
             - name: Deploy documentation to docs branch
               uses: peaceiris/actions-gh-pages@v4.0.0
