@@ -77,7 +77,7 @@ jobs:
                   bun pm pkg set name=@cmru-computer-science-66/cmru-api
                   echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" > ~/.npmrc
                   echo "@cmru-computer-science-66:registry=https://npm.pkg.github.com" >> ~/.npmrc
-                  bun publish --registry https://npm.pkg.github.com
+                  npm publish --registry https://npm.pkg.github.com
                   bun pm pkg set name=@cmru-comsci-66/cmru-api
 
             - name: Automatically Commit Changes
