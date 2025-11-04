@@ -56,34 +56,39 @@ jobs:
             - name: Lint code
               run: bun run lint
 
-            - name: Deploy to npm registry
-              run: |
-                  echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-                  bunx np ${{ github.event.inputs.version_type }} --no-interactive --no-cleanup
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-                  NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-                  GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-
-            - name: Push changes
-              run: |
-                  git push origin main --tags
+            - name: Bump version
+              run: bun bump ${{ github.event.inputs.version_type }}
 
             - name: Get package version
               id: package-version
               run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
-            - name: Setup Node.js for GitHub Packages
-              uses: actions/setup-node@v4
-              with:
-                  node-version: "20"
-                  registry-url: "https://npm.pkg.github.com"
-                  scope: "@cmru-comsci-66"
+            - name: Generate documentation
+              run: bun run docs
+
+            - name: Publish to npm registry
+              run: |
+                  echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+                  bun publish
+                  rm ~/.npmrc
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
             - name: Publish to GitHub Packages
               run: |
+                  bun pm pkg set name=@cmru-computer-science-66/cmru-api
                   echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > ~/.npmrc
-                  echo "@cmru-comsci-66:registry=https://npm.pkg.github.com" >> ~/.npmrc
+                  echo "@cmru-computer-science-66:registry=https://npm.pkg.github.com" >> ~/.npmrc
                   bun publish
+                  bun pm pkg set name=@cmru-comsci-66/cmru-api
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Automatically Commit Changes
+              uses: stefanzweifel/git-auto-commit-action@v7
+              with:
+                  push_options: "--force"
+                  commit_options: "--no-verify"
+                  tagging_message: "v${{ steps.package-version.outputs.version }}"
+                  commit_message: "Release v${{ steps.package-version.outputs.version }}"
+                  skip_checkout: true

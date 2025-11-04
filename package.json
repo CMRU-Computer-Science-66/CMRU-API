@@ -10,7 +10,7 @@
 	],
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/CMRU-Computer-Science-66/CMRU-API.git"
+		"url": "https://github.com/CMRU-Computer-Science-66/CMRU-API.git"
 	},
 	"license": "MIT",
 	"author": "Faelayis <48393914+Faelayis@users.noreply.github.com>",
@@ -39,13 +39,7 @@
 		"fix": "eslint . --fix",
 		"lint": "eslint .",
 		"prepare": "bun run build",
-		"prepublishOnly": "bun run build && bun run lint",
-		"prettier": "prettier --write . --ignore-unknown",
-		"release": "np",
-		"release:major": "np major",
-		"release:minor": "np minor",
-		"release:patch": "np patch",
-		"version": "bun run build && bun run docs && git add -A public"
+		"prettier": "prettier --write . --ignore-unknown"
 	},
 	"dependencies": {
 		"axios": "^1.13.1",
@@ -55,6 +49,7 @@
 	"devDependencies": {
 		"@eslint/compat": "1.4.1",
 		"@eslint/js": "9.39.1",
+		"@jsdevtools/version-bump-prompt": "6.1.0",
 		"@types/bun": "latest",
 		"@types/cheerio": "1.0.0",
 		"@typescript-eslint/eslint-plugin": "8.46.3",
@@ -64,7 +59,6 @@
 		"eslint-plugin-prettier": "5.5.4",
 		"eslint-plugin-unicorn": "62.0.0",
 		"jiti": "2.6.1",
-		"np": "10.2.0",
 		"prettier": "3.6.2",
 		"prettier-plugin-packagejson": "^2.5.19",
 		"prettier-plugin-sort-json": "^4.1.1",
