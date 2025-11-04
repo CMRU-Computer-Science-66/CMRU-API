@@ -6,7 +6,7 @@ import type { Linter } from "eslint";
 
 const config: Linter.Config[] = [
 	{
-		ignores: ["dist/**", "node_modules/**"],
+		ignores: ["dist/**", "node_modules/**", "public/**"],
 	},
 	eslint.configs.recommended,
 	...tseslint.configs.recommendedTypeChecked,

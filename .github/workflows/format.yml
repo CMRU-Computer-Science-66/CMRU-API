@@ -1,0 +1,33 @@
+name: Code Formatter
+on:
+    workflow_dispatch:
+    push:
+        paths:
+            - "**/*.ts"
+
+jobs:
+    formatter:
+        name: ESLint & Prettier
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version-file: "package.json"
+
+            - name: Run ESLint
+              run: bun run fix
+
+            - name: Run Prettier
+              run: bun run prettier
+
+            - name: Automatically Commit Changed
+              uses: stefanzweifel/git-auto-commit-action@v4
+              with:
+                  push_options: "--force"
+                  commit_options: "--no-verify"
+                  commit_message: "Code Formatting"
+                  skip_checkout: true

@@ -58,12 +58,21 @@
 		"dev": "tsup  --watch",
 		"docs": "typedoc",
 		"fix": "eslint . --fix",
+		"preinstall": "npx only-allow bun",
 		"lint": "eslint .",
+		"pre-commit": "bunx lint-staged --quiet",
+		"prepare": "husky",
 		"prettier": "prettier --write . --ignore-unknown"
 	},
+	"lint-staged": {
+		"*.ts": "eslint --fix",
+		"*": [
+			"prettier --write --ignore-unknown"
+		]
+	},
 	"dependencies": {
-		"@faker-js/faker": "^9.3.0",
-		"axios": "^1.13.1",
+		"@faker-js/faker": "^10.1.0",
+		"axios": "^1.13.2",
 		"cheerio": "^1.1.2"
 	},
 	"devDependencies": {
@@ -78,10 +87,12 @@
 		"eslint-config-prettier": "10.1.8",
 		"eslint-plugin-prettier": "5.5.4",
 		"eslint-plugin-unicorn": "62.0.0",
+		"husky": "9.1.7",
 		"jiti": "2.6.1",
+		"lint-staged": "16.2.6",
 		"prettier": "3.6.2",
-		"prettier-plugin-packagejson": "^2.5.19",
-		"prettier-plugin-sort-json": "^4.1.1",
+		"prettier-plugin-packagejson": "2.5.19",
+		"prettier-plugin-sort-json": "4.1.1",
 		"puppeteer": "24.28.0",
 		"tsup": "8.5.0",
 		"typedoc": "0.28.14",

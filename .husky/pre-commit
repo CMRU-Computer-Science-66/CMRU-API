@@ -1,0 +1,9 @@
+echo "→ husky (pre-commit)"
+
+if command -v bun >/dev/null; then
+   bun run --silent pre-commit
+else
+   echo "❌ This project uses bun." && exit 127
+fi
+
+echo
