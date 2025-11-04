@@ -80,6 +80,7 @@ jobs:
                   bun publish --registry https://npm.pkg.github.com
                   bun pm pkg set name=@cmru-comsci-66/cmru-api
               env:
+                  NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
                   NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Automatically Commit Changes
