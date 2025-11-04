@@ -29,7 +29,10 @@ jobs:
         permissions:
             contents: write
             packages: write
-
+        env:
+            NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
+            NODE_AUTH_TOKEN: ${{ secrets.GH_TOKEN }}
+            BUN_AUTH_TOKEN: ${{ secrets.GH_TOKEN }}
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -67,8 +70,6 @@ jobs:
               run: |
                   echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
                   bun publish --registry https://registry.npmjs.org
-              env:
-                  NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
 
             - name: Publish to GitHub Packages
               if: github.event.inputs.deploy_target == 'github' || github.event.inputs.deploy_target == 'both'
@@ -78,9 +79,6 @@ jobs:
                   echo "@cmru-computer-science-66:registry=https://npm.pkg.github.com" >> ~/.npmrc
                   bun publish --registry https://npm.pkg.github.com
                   bun pm pkg set name=@cmru-comsci-66/cmru-api
-              env:
-                  NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
-                  NODE_AUTH_TOKEN: ${{ secrets.GH_TOKEN }}
 
             - name: Automatically Commit Changes
               uses: stefanzweifel/git-auto-commit-action@v7
