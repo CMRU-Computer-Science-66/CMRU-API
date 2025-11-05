@@ -1,34 +1,25 @@
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import type { BusApi } from "./types";
-import { BusSessionManager } from "./bus/session-manager";
+import { SessionManager } from "./manager/session-manager";
 import { parseScheduleHTML, type ParsedScheduleData } from "./bus/parser/schedule";
 import { parseAvailableBusHTML, type AvailableBusData } from "./bus/parser/available";
 import type { SessionCredentials } from "../types/session";
 import { generateRandomUserAgent } from "./utilities/user-agent";
+import { formatCookies } from "./manager/cookie-manager";
 
 export class CmruBusApiClient implements BusApi {
-	private sessionManager: BusSessionManager;
+	private sessionManager: SessionManager;
 
 	constructor(
 		private client: AxiosInstance,
-		sessionKey: string = "default",
+		sessionKey: string = "bus",
 	) {
-		this.sessionManager = BusSessionManager.getInstance(sessionKey);
+		this.sessionManager = SessionManager.forBusApi(sessionKey);
 	}
 
 	private generateHeaders(): Record<string, string> {
 		return {
 			"User-Agent": generateRandomUserAgent(),
-			Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-			"Accept-Language": "en-US,en;q=0.9,th;q=0.8",
-			"Accept-Encoding": "gzip, deflate, br",
-			"Sec-Ch-Ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
-			"Sec-Ch-Ua-Mobile": "?0",
-			"Sec-Ch-Ua-Platform": '"Windows"',
-			"Sec-Fetch-Dest": "document",
-			"Sec-Fetch-Mode": "navigate",
-			"Sec-Fetch-Site": "none",
-			"Sec-Fetch-User": "?1",
 			"Upgrade-Insecure-Requests": "1",
 		};
 	}
@@ -47,18 +38,8 @@ export class CmruBusApiClient implements BusApi {
 		this.sessionManager.clearSession();
 	}
 
-	private formatCookies(cookies: string | string[]): string {
-		if (Array.isArray(cookies)) {
-			return cookies
-				.map((cookie) => {
-					const parts = cookie.split(";");
-					return parts[0] ? parts[0].trim() : "";
-				})
-				.filter((c) => c)
-				.join("; ");
-		}
-		const parts = cookies.split(";");
-		return parts[0] ? parts[0].trim() : "";
+	public getSessionManager(): SessionManager {
+		return this.sessionManager;
 	}
 
 	private async ensureAuthenticated(): Promise<void> {
@@ -106,7 +87,6 @@ export class CmruBusApiClient implements BusApi {
 
 		const config: AxiosRequestConfig = {
 			withCredentials: true,
-			timeout: 30000,
 			headers: {
 				...headers,
 				"X-Requested-With": "XMLHttpRequest",
@@ -154,10 +134,8 @@ export class CmruBusApiClient implements BusApi {
 			throw new Error("No authentication cookies available. Please call login() first or provide cookies manually.");
 		}
 
-		const cookieString = this.formatCookies(cookiesToUse);
-
+		const cookieString = formatCookies(cookiesToUse);
 		const headers = this.generateHeaders();
-
 		const config: AxiosRequestConfig = {
 			withCredentials: true,
 			headers: {
@@ -212,10 +190,8 @@ export class CmruBusApiClient implements BusApi {
 			throw new Error("No authentication cookies available. Please call login() first or provide cookies manually.");
 		}
 
-		const cookieString = this.formatCookies(cookiesToUse);
-
+		const cookieString = formatCookies(cookiesToUse);
 		const headers = this.generateHeaders();
-
 		const config: AxiosRequestConfig = {
 			withCredentials: true,
 			headers: {
@@ -252,10 +228,8 @@ export class CmruBusApiClient implements BusApi {
 			throw new Error("No authentication cookies available. Please call login() first or provide cookies manually.");
 		}
 
-		const cookieString = this.formatCookies(cookiesToUse);
-
+		const cookieString = formatCookies(cookiesToUse);
 		const headers = this.generateHeaders();
-
 		const config: AxiosRequestConfig = {
 			withCredentials: true,
 			headers: {
@@ -300,10 +274,8 @@ export class CmruBusApiClient implements BusApi {
 			throw new Error("No authentication cookies available. Please call login() first or provide cookies manually.");
 		}
 
-		const cookieString = this.formatCookies(cookiesToUse);
-
+		const cookieString = formatCookies(cookiesToUse);
 		const headers = this.generateHeaders();
-
 		const config: AxiosRequestConfig = {
 			withCredentials: true,
 			headers: {
@@ -352,10 +324,8 @@ export class CmruBusApiClient implements BusApi {
 			throw new Error("No authentication cookies available. Please call login() first or provide cookies manually.");
 		}
 
-		const cookieString = this.formatCookies(cookiesToUse);
-
+		const cookieString = formatCookies(cookiesToUse);
 		const headers = this.generateHeaders();
-
 		const config: AxiosRequestConfig = {
 			withCredentials: true,
 			headers: {
@@ -373,7 +343,6 @@ export class CmruBusApiClient implements BusApi {
 		const data = `${scheduleId}:||:${scheduleDate}:||:${destinationType}`;
 		const encodedData = encodeURIComponent(data);
 		const url = `/schedule/saveschereserv?data=${encodedData}`;
-
 		const response = await this.client.get<number>(url, config);
 
 		if (response.status !== 200) {

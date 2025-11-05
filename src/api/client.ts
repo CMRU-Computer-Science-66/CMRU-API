@@ -15,13 +15,13 @@ export class ApiClient<T extends ApiServer = ApiServer.BUS> {
 		this.serverType = serverType;
 		this.client = axios.create({
 			baseURL: serverType,
-			timeout: config?.timeout,
+			timeout: config?.timeout || 30000,
 			headers: {
 				"Content-Type": "application/json",
 				...config?.headers,
 			},
 			auth: config?.auth,
-			maxRedirects: 5,
+			maxRedirects: 0,
 			validateStatus: (status) => status < 500,
 		});
 
