@@ -50,6 +50,9 @@
 	"module": "./dist/node/index.js",
 	"browser": "./dist/browser/index.js",
 	"types": "./dist/node/index.d.ts",
+	"bin": {
+		"cmru-api": "./dist/cli/index.js"
+	},
 	"files": [
 		"dist"
 	],
@@ -62,7 +65,8 @@
 		"lint": "eslint .",
 		"pre-commit": "bunx lint-staged --quiet",
 		"prepare": "husky",
-		"prettier": "prettier --write . --ignore-unknown"
+		"prettier": "prettier --write . --ignore-unknown",
+		"serve": "node dist/cli/index.js serve"
 	},
 	"lint-staged": {
 		"*.ts": "eslint --fix",

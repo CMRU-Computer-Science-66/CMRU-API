@@ -44,6 +44,22 @@ const allConfigs: Options[] = [
 		platform: "browser",
 		globalName: "CmruApi",
 	},
+	{
+		entry: ["src/cli/index.ts"],
+		format: ["esm"],
+		dts: false,
+		splitting: false,
+		sourcemap: false,
+		clean: false,
+		treeshake: true,
+		minify: false,
+		outDir: "dist/cli",
+		external: ["axios", "cheerio"],
+		platform: "node",
+		banner: {
+			js: "#!/usr/bin/env node",
+		},
+	},
 	neutralConfig,
 ];
 
