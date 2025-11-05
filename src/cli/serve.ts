@@ -41,7 +41,7 @@ if (isBun) {
 		return jsonResponse({ error: message }, status);
 	}
 
-	function handleRequest(req: Request): Response {
+	async function handleRequest(req: Request): Promise<Response> {
 		const url = new URL(req.url);
 		const pathname = url.pathname;
 		const timestamp = new Date().toISOString();
@@ -66,6 +66,31 @@ if (isBun) {
 					runtime: "Bun",
 					endpoints: API_ENDPOINTS,
 				});
+			}
+
+			const route = routes.find((r) => r.path === pathname && r.method === req.method);
+
+			if (route) {
+				if (req.method === "POST") {
+					try {
+						const body = await req.json();
+						const data = await route.handler(body);
+						return jsonResponse(data);
+					} catch (error) {
+						if (error instanceof Error && error.message.includes("JSON")) {
+							return errorResponse("Invalid JSON body", 400);
+						}
+						const statusCode = error instanceof Error && error.message.includes("required") ? 400 : 401;
+						return errorResponse(error instanceof Error ? error.message : "Request failed", statusCode);
+					}
+				} else {
+					try {
+						const data = await route.handler();
+						return jsonResponse(data);
+					} catch (error) {
+						return errorResponse(error instanceof Error ? error.message : "Request failed", 500);
+					}
+				}
 			}
 
 			return errorResponse("Endpoint not found", 404);
