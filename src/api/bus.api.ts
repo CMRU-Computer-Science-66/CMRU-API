@@ -1,17 +1,19 @@
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import { faker } from "@faker-js/faker";
 import type { BusApi } from "./types";
-import { parseScheduleHTML, parseAvailableBusHTML, type ParsedScheduleData, type AvailableBusData } from "./bus/parser";
-import { SessionManager } from "./bus/session-manager";
+import { BusSessionManager } from "./bus/session-manager";
+import { parseScheduleHTML, type ParsedScheduleData } from "./bus/parser/schedule";
+import { parseAvailableBusHTML, type AvailableBusData } from "./bus/parser/available";
+import type { SessionCredentials } from "../types/session";
 
 export class CmruBusApiClient implements BusApi {
-	private sessionManager: SessionManager;
+	private sessionManager: BusSessionManager;
 
 	constructor(
 		private client: AxiosInstance,
 		sessionKey: string = "default",
 	) {
-		this.sessionManager = SessionManager.getInstance(sessionKey);
+		this.sessionManager = BusSessionManager.getInstance(sessionKey);
 	}
 
 	private generateHeaders(): Record<string, string> {
@@ -38,11 +40,11 @@ export class CmruBusApiClient implements BusApi {
 		};
 	}
 
-	async login<T = unknown>(username: string, password: string): Promise<AxiosResponse<T>> {
-		const response = await this.getSession<T>(username, password);
+	async login<T = unknown>(credentials: SessionCredentials): Promise<AxiosResponse<T>> {
+		const response = await this.getSession<T>(credentials.username, credentials.password);
 
 		if (response.headers["set-cookie"]) {
-			this.sessionManager.setSession(username, password, response.headers["set-cookie"]);
+			this.sessionManager.setSession(credentials.username, credentials.password, response.headers["set-cookie"]);
 		}
 
 		return response;

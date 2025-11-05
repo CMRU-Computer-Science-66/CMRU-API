@@ -5,19 +5,19 @@ export interface SessionData {
 	lastValidated: number;
 }
 
-export class SessionManager {
-	private static instances: Map<string, SessionManager> = new Map();
+export class BusSessionManager {
+	private static instances: Map<string, BusSessionManager> = new Map();
 	private sessionData: SessionData | null = null;
 	private isLoggingIn: boolean = false;
 	private loginPromise: Promise<void> | null = null;
 	private static readonly SESSION_VALIDITY_DURATION = 5 * 60 * 1000;
 	private constructor(private sessionKey: string) {}
 
-	public static getInstance(sessionKey: string = "default"): SessionManager {
-		if (!SessionManager.instances.has(sessionKey)) {
-			SessionManager.instances.set(sessionKey, new SessionManager(sessionKey));
+	public static getInstance(sessionKey: string = "default"): BusSessionManager {
+		if (!BusSessionManager.instances.has(sessionKey)) {
+			BusSessionManager.instances.set(sessionKey, new BusSessionManager(sessionKey));
 		}
-		return SessionManager.instances.get(sessionKey)!;
+		return BusSessionManager.instances.get(sessionKey)!;
 	}
 
 	public setSession(username: string, password: string, cookies: string | string[]): void {
@@ -39,7 +39,7 @@ export class SessionManager {
 		}
 
 		const timeSinceLastValidation = Date.now() - this.sessionData.lastValidated;
-		return timeSinceLastValidation < SessionManager.SESSION_VALIDITY_DURATION;
+		return timeSinceLastValidation < BusSessionManager.SESSION_VALIDITY_DURATION;
 	}
 
 	public updateLastValidated(): void {
@@ -106,10 +106,10 @@ export class SessionManager {
 	}
 
 	public static removeInstance(sessionKey: string): void {
-		SessionManager.instances.delete(sessionKey);
+		BusSessionManager.instances.delete(sessionKey);
 	}
 
 	public static clearAllInstances(): void {
-		SessionManager.instances.clear();
+		BusSessionManager.instances.clear();
 	}
 }
