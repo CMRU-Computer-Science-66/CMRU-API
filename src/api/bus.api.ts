@@ -1,10 +1,10 @@
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
-import { faker } from "@faker-js/faker";
 import type { BusApi } from "./types";
 import { BusSessionManager } from "./bus/session-manager";
 import { parseScheduleHTML, type ParsedScheduleData } from "./bus/parser/schedule";
 import { parseAvailableBusHTML, type AvailableBusData } from "./bus/parser/available";
 import type { SessionCredentials } from "../types/session";
+import { generateRandomUserAgent } from "./utilities/user-agent";
 
 export class CmruBusApiClient implements BusApi {
 	private sessionManager: BusSessionManager;
@@ -17,15 +17,8 @@ export class CmruBusApiClient implements BusApi {
 	}
 
 	private generateHeaders(): Record<string, string> {
-		const userAgents = [
-			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-			"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-			"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-		];
-
 		return {
-			"User-Agent": faker.helpers.arrayElement(userAgents),
+			"User-Agent": generateRandomUserAgent(),
 			Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
 			"Accept-Language": "en-US,en;q=0.9,th;q=0.8",
 			"Accept-Encoding": "gzip, deflate, br",

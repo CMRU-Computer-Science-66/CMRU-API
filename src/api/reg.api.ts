@@ -4,6 +4,7 @@ import type { SessionCredentials, SessionResponse } from "../types/session";
 import { RegSessionManager } from "./reg/session-manager";
 import { parseTimetable, type TimetableData } from "./reg/parser/timetable";
 import { parseStudentInfo, type StudentInfo } from "./reg/parser/student";
+import { generateRandomUserAgent } from "./utilities/user-agent";
 
 export class RegApiClient implements RegApi {
 	private sessionManager: RegSessionManager;
@@ -94,7 +95,7 @@ export class RegApiClient implements RegApi {
 			"Sec-Fetch-Site": "same-origin",
 			"Sec-Fetch-User": "?1",
 			"Upgrade-Insecure-Requests": "1",
-			"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+			"User-Agent": generateRandomUserAgent(),
 		};
 
 		if (initialCookies) {
