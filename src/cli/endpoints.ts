@@ -25,106 +25,191 @@ export interface RouteConfig {
 	handler: EndpointHandler;
 }
 
+export class ApiError extends Error {
+	constructor(
+		message: string,
+		public statusCode: number,
+		public errorType: "validation" | "auth" | "session" | "network" | "server" | "unknown",
+	) {
+		super(message);
+		this.name = "ApiError";
+	}
+}
+
+function handleApiError(error: unknown): never {
+	if (error instanceof ApiError) {
+		throw error;
+	}
+
+	if (error instanceof Error) {
+		const message = error.message.toLowerCase();
+
+		if (message.includes("invalid username or password") || message.includes("login failed")) {
+			throw new ApiError("Invalid username or password", 401, "auth");
+		}
+
+		if (message.includes("session expired") || message.includes("please login again")) {
+			throw new ApiError("Session expired. Please login again", 401, "session");
+		}
+
+		if (message.includes("no authentication cookies") || message.includes("no credentials available")) {
+			throw new ApiError("Authentication required. Please login first", 401, "auth");
+		}
+
+		if (message.includes("timeout") || message.includes("network") || message.includes("econnrefused")) {
+			throw new ApiError("Network error. Please try again", 503, "network");
+		}
+
+		if (message.includes("unexpected response status") || message.includes("failed to")) {
+			throw new ApiError(error.message, 502, "server");
+		}
+
+		throw new ApiError(error.message, 500, "unknown");
+	}
+
+	throw new ApiError("An unexpected error occurred", 500, "unknown");
+}
+
 export function createRoutes(busApi: BusApi, regApi: RegApi): RouteConfig[] {
 	return [
 		{
 			method: "POST",
 			path: "/bus/login",
 			handler: async (body) => {
-				const { username, password } = body as { username?: string; password?: string };
-				if (!username || !password) {
-					throw new Error("Username and password are required");
+				try {
+					const { username, password } = body as { username?: string; password?: string };
+					if (!username || !password) {
+						throw new ApiError("Username and password are required", 400, "validation");
+					}
+					await busApi.login({ username, password });
+					return { success: true, message: "Logged in successfully" };
+				} catch (error) {
+					handleApiError(error);
 				}
-				await busApi.login({ username, password });
-				return { success: true, message: "Logged in successfully" };
 			},
 		},
 		{
 			method: "GET",
 			path: "/bus/available",
 			handler: async () => {
-				return await busApi.getAvailableBuses();
+				try {
+					return await busApi.getAvailableBuses();
+				} catch (error) {
+					handleApiError(error);
+				}
 			},
 		},
 		{
 			method: "GET",
 			path: "/bus/schedule",
 			handler: async () => {
-				return await busApi.getSchedule();
+				try {
+					return await busApi.getSchedule();
+				} catch (error) {
+					handleApiError(error);
+				}
 			},
 		},
 		{
 			method: "POST",
 			path: "/bus/confirm",
 			handler: async (body) => {
-				const { data } = body as { data?: string };
-				if (!data) {
-					throw new Error("Confirmation data is required");
+				try {
+					const { data } = body as { data?: string };
+					if (!data) {
+						throw new ApiError("Confirmation data is required", 400, "validation");
+					}
+					const response = await busApi.confirmReservation(data);
+					return { success: true, data: response.data };
+				} catch (error) {
+					handleApiError(error);
 				}
-				const response = await busApi.confirmReservation(data);
-				return { success: true, data: response.data };
 			},
 		},
 		{
 			method: "POST",
 			path: "/bus/cancel",
 			handler: async (body) => {
-				const { data } = body as { data?: string };
-				if (!data) {
-					throw new Error("Cancellation data is required");
+				try {
+					const { data } = body as { data?: string };
+					if (!data) {
+						throw new ApiError("Cancellation data is required", 400, "validation");
+					}
+					const response = await busApi.cancelReservation(data);
+					return { success: true, data: response.data };
+				} catch (error) {
+					handleApiError(error);
 				}
-				const response = await busApi.cancelReservation(data);
-				return { success: true, data: response.data };
 			},
 		},
 		{
 			method: "POST",
 			path: "/bus/book",
 			handler: async (body) => {
-				const { scheduleId, scheduleDate, destinationType } = body as {
-					scheduleId?: number;
-					scheduleDate?: string;
-					destinationType?: 1 | 2;
-				};
-				if (!scheduleId || !scheduleDate || !destinationType) {
-					throw new Error("scheduleId, scheduleDate, and destinationType are required");
+				try {
+					const { scheduleId, scheduleDate, destinationType } = body as {
+						scheduleId?: number;
+						scheduleDate?: string;
+						destinationType?: 1 | 2;
+					};
+					if (!scheduleId || !scheduleDate || !destinationType) {
+						throw new ApiError("scheduleId, scheduleDate, and destinationType are required", 400, "validation");
+					}
+					const response = await busApi.bookBus(scheduleId, scheduleDate, destinationType);
+					return { success: true, bookingId: response.data };
+				} catch (error) {
+					handleApiError(error);
 				}
-				const response = await busApi.bookBus(scheduleId, scheduleDate, destinationType);
-				return { success: true, bookingId: response.data };
 			},
 		},
 		{
 			method: "GET",
 			path: "/bus/validate",
 			handler: async () => {
-				const isValid = await busApi.validateSession();
-				return { valid: isValid };
+				try {
+					const isValid = await busApi.validateSession();
+					return { valid: isValid };
+				} catch (error) {
+					handleApiError(error);
+				}
 			},
 		},
 		{
 			method: "POST",
 			path: "/reg/login",
 			handler: async (body) => {
-				const { username, password } = body as { username?: string; password?: string };
-				if (!username || !password) {
-					throw new Error("Username and password are required");
+				try {
+					const { username, password } = body as { username?: string; password?: string };
+					if (!username || !password) {
+						throw new ApiError("Username and password are required", 400, "validation");
+					}
+					await regApi.login({ username, password });
+					return { success: true, message: "Logged in successfully" };
+				} catch (error) {
+					handleApiError(error);
 				}
-				await regApi.login({ username, password });
-				return { success: true, message: "Logged in successfully" };
 			},
 		},
 		{
 			method: "GET",
 			path: "/reg/student",
 			handler: async () => {
-				return await regApi.getStudentInfo();
+				try {
+					return await regApi.getStudentInfo();
+				} catch (error) {
+					handleApiError(error);
+				}
 			},
 		},
 		{
 			method: "GET",
 			path: "/reg/timetable",
 			handler: async () => {
-				return await regApi.getTimeTable();
+				try {
+					return await regApi.getTimeTable();
+				} catch (error) {
+					handleApiError(error);
+				}
 			},
 		},
 	];

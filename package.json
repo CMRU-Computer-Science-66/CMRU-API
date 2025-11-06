@@ -66,7 +66,7 @@
 		"pre-commit": "bunx lint-staged --quiet",
 		"prepare": "husky",
 		"prettier": "prettier --write . --ignore-unknown",
-		"serve": "node dist/cli/index.js serve"
+		"serve": "bun run ./src/cli/index.ts serve"
 	},
 	"lint-staged": {
 		"*.ts": "eslint --fix",

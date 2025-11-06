@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ApiClient, ApiServer } from "../api";
-import { API_ENDPOINTS, printEndpoints, createRoutes } from "./endpoints";
+import { API_ENDPOINTS, printEndpoints, createRoutes, ApiError } from "./endpoints";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -37,8 +37,12 @@ if (isBun) {
 		});
 	}
 
-	function errorResponse(message: string, status = 400): Response {
-		return jsonResponse({ error: message }, status);
+	function errorResponse(message: string, status = 400, errorType?: string): Response {
+		const responseData: { error: string; errorType?: string } = { error: message };
+		if (errorType) {
+			responseData.errorType = errorType;
+		}
+		return jsonResponse(responseData, status);
 	}
 
 	async function handleRequest(req: Request): Promise<Response> {
@@ -80,14 +84,19 @@ if (isBun) {
 						if (error instanceof Error && error.message.includes("JSON")) {
 							return errorResponse("Invalid JSON body", 400);
 						}
-						const statusCode = error instanceof Error && error.message.includes("required") ? 400 : 401;
-						return errorResponse(error instanceof Error ? error.message : "Request failed", statusCode);
+						if (error instanceof ApiError) {
+							return errorResponse(error.message, error.statusCode, error.errorType);
+						}
+						return errorResponse(error instanceof Error ? error.message : "Request failed", 500);
 					}
 				} else {
 					try {
 						const data = await route.handler();
 						return jsonResponse(data);
 					} catch (error) {
+						if (error instanceof ApiError) {
+							return errorResponse(error.message, error.statusCode, error.errorType);
+						}
 						return errorResponse(error instanceof Error ? error.message : "Request failed", 500);
 					}
 				}
@@ -132,8 +141,12 @@ if (isBun) {
 		res.end(JSON.stringify(data));
 	}
 
-	function sendError(res: ServerResponse, message: string, status = 400) {
-		sendJSON(res, { error: message }, status);
+	function sendError(res: ServerResponse, message: string, status = 400, errorType?: string) {
+		const responseData: { error: string; errorType?: string } = { error: message };
+		if (errorType) {
+			responseData.errorType = errorType;
+		}
+		sendJSON(res, responseData, status);
 	}
 
 	async function handleRequest(req: IncomingMessage, res: ServerResponse) {
@@ -177,8 +190,11 @@ if (isBun) {
 								const data = await route.handler(parsedBody);
 								sendJSON(res, data);
 							} catch (error) {
-								const statusCode = error instanceof Error && error.message.includes("required") ? 400 : 401;
-								sendError(res, error instanceof Error ? error.message : "Request failed", statusCode);
+								if (error instanceof ApiError) {
+									sendError(res, error.message, error.statusCode, error.errorType);
+								} else {
+									sendError(res, error instanceof Error ? error.message : "Request failed", 500);
+								}
 							}
 						})();
 					});
@@ -187,7 +203,11 @@ if (isBun) {
 						const data = await route.handler();
 						sendJSON(res, data);
 					} catch (error) {
-						sendError(res, error instanceof Error ? error.message : "Request failed", 500);
+						if (error instanceof ApiError) {
+							sendError(res, error.message, error.statusCode, error.errorType);
+						} else {
+							sendError(res, error instanceof Error ? error.message : "Request failed", 500);
+						}
 					}
 				}
 				return;
