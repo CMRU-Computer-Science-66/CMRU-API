@@ -21,6 +21,7 @@ export interface ScheduleReservation {
 	ticket: {
 		hasQRCode: boolean;
 		status: string;
+		showticket: string | null;
 	};
 	destination: {
 		name: string;
@@ -40,6 +41,7 @@ export interface ScheduleReservation {
 	actions: {
 		canDelete: boolean;
 		deleteUrl?: string;
+		reservationId?: string | number;
 	};
 	travelStatus: {
 		hasCompleted: boolean | null;
@@ -53,17 +55,30 @@ export interface ParsedScheduleData {
 	};
 	totalReservations: number;
 	currentPage: number;
+	totalPages: number;
+	hasNextPage: boolean;
+	hasPrevPage: boolean;
 	reservations: ScheduleReservation[];
 }
 
 export function parseScheduleHTML(html: string): ParsedScheduleData {
 	const $ = cheerio.load(html);
 	const userName = $("#alert-Top h4").text().trim();
-
 	const totalText = $(".pagination .title span").text();
 	const totalReservations = parseInt(totalText) || 0;
-
 	const currentPage = parseInt($(".pagination .activex").text()) || 1;
+	const pageNumbers: number[] = [];
+
+	$(".pagination li.activex, .pagination li.numlink").each((_index: number, element) => {
+		const pageNum = parseInt($(element).text().trim());
+		if (!isNaN(pageNum)) {
+			pageNumbers.push(pageNum);
+		}
+	});
+
+	const totalPages = pageNumbers.length > 0 ? Math.max(...pageNumbers) : 1;
+	const hasNextPage = currentPage < totalPages;
+	const hasPrevPage = currentPage > 1;
 
 	const reservations: ScheduleReservation[] = [];
 
@@ -77,7 +92,26 @@ export function parseScheduleHTML(html: string): ParsedScheduleData {
 
 		const ticketCell = $cells.eq(1);
 		const hasQRCode = ticketCell.find("i.fa-qrcode").length > 0;
-		const ticketStatus = ticketCell.text().trim();
+
+		let showticket = null;
+		const qrLink = ticketCell.find("a");
+
+		if (qrLink.length > 0) {
+			const onclickAttr = qrLink.attr("onclick");
+			const urlMatch = onclickAttr?.match(/openNewWindow\('([^']+)'\)/);
+
+			if (urlMatch && urlMatch[1]) {
+				showticket = urlMatch[1];
+				console.log(urlMatch[1]);
+			}
+		}
+
+		let ticketStatus;
+		if (hasQRCode) {
+			ticketStatus = qrLink.text().trim() || "มี QRCode";
+		} else {
+			ticketStatus = ticketCell.text().trim() || "-";
+		}
 
 		const destinationCell = $cells.eq(2);
 		const destinationName = destinationCell.find("span").text().trim();
@@ -164,11 +198,18 @@ export function parseScheduleHTML(html: string): ParsedScheduleData {
 		const deleteLink = confirmationCell.find("a.badge-danger");
 		const canDelete = deleteLink.length > 0;
 		let deleteUrl: string | undefined;
+		let reservationId: string | number | undefined;
 		if (canDelete) {
 			const onclickAttr = deleteLink.attr("onclick");
 			const match = onclickAttr?.match(/confirm\('([^']+)'\)/);
 			if (match && match[1]) {
 				deleteUrl = match[1];
+
+				const idMatch = deleteUrl.match(/\/delt\/(\d+)/);
+
+				if (idMatch && idMatch[1]) {
+					reservationId = parseInt(idMatch[1]);
+				}
 			}
 		}
 
@@ -200,6 +241,7 @@ export function parseScheduleHTML(html: string): ParsedScheduleData {
 			ticket: {
 				hasQRCode,
 				status: ticketStatus,
+				showticket,
 			},
 			destination: {
 				name: destinationName,
@@ -219,6 +261,7 @@ export function parseScheduleHTML(html: string): ParsedScheduleData {
 			actions: {
 				canDelete,
 				deleteUrl,
+				reservationId,
 			},
 			travelStatus: {
 				hasCompleted,
@@ -233,6 +276,9 @@ export function parseScheduleHTML(html: string): ParsedScheduleData {
 		},
 		totalReservations,
 		currentPage,
+		totalPages,
+		hasNextPage,
+		hasPrevPage,
 		reservations,
 	};
 }

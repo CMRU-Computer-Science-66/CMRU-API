@@ -4,6 +4,7 @@ export interface SessionData {
 	password: string;
 	lastValidated: number;
 	loginTime: number;
+	oneClick?: boolean;
 }
 
 export type SessionType = "bus" | "reg";
@@ -40,7 +41,7 @@ export class SessionManager {
 		return SessionManager.instances.get(sessionKey)!;
 	}
 
-	public setSession(username: string, password: string, cookies: string | string[]): void {
+	public setSession(username: string, password: string, cookies: string | string[], oneClick?: boolean): void {
 		const now = Date.now();
 		this.sessionData = {
 			cookies,
@@ -48,6 +49,7 @@ export class SessionManager {
 			password,
 			lastValidated: now,
 			loginTime: now,
+			oneClick,
 		};
 	}
 
@@ -86,6 +88,16 @@ export class SessionManager {
 
 	public getSessionData(): SessionData | null {
 		return this.sessionData;
+	}
+
+	public getOneClickEnabled(): boolean {
+		return this.sessionData?.oneClick || false;
+	}
+
+	public setOneClickEnabled(enabled: boolean): void {
+		if (this.sessionData) {
+			this.sessionData.oneClick = enabled;
+		}
 	}
 
 	public getLoginTime(): number | null {

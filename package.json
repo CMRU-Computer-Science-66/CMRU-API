@@ -58,7 +58,9 @@
 	],
 	"scripts": {
 		"build": "tsup",
-		"dev": "tsup --watch . --onSuccess 'clear && tsx test.ts'",
+		"dev": "tsup --watch .",
+		"dev:serve": "tsup --watch . --onSuccess 'clear && bun serve'",
+		"dev:test": "tsup --watch . --onSuccess 'clear && tsx test.ts'",
 		"docs": "typedoc",
 		"fix": "eslint . --fix",
 		"preinstall": "npx only-allow bun",
@@ -66,7 +68,8 @@
 		"pre-commit": "bunx lint-staged --quiet",
 		"prepare": "husky",
 		"prettier": "prettier --write . --ignore-unknown",
-		"serve": "bun run ./src/cli/index.ts serve"
+		"serve": "tsx ./src/cli/index.ts serve",
+		"start": "tsx test.ts"
 	},
 	"lint-staged": {
 		"*.ts": "eslint --fix",

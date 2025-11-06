@@ -6,8 +6,10 @@ export const API_ENDPOINTS = {
 		login: "POST /bus/login",
 		loginWith: "POST /bus/login-with",
 		availableBuses: "GET /bus/available",
-		schedule: "GET /bus/schedule",
+		schedule: "GET /bus/schedule?page={number}",
 		confirmReservation: "POST /bus/confirm",
+		unconfirmReservation: "POST /bus/unconfirm",
+		deleteReservation: "POST /bus/delete",
 		cancelReservation: "POST /bus/cancel",
 		bookBus: "POST /bus/book",
 		validateSession: "GET /bus/validate",
@@ -19,7 +21,7 @@ export const API_ENDPOINTS = {
 	},
 } as const;
 
-export type EndpointHandler = (body?: unknown) => Promise<unknown>;
+export type EndpointHandler = (body?: unknown, query?: URLSearchParams) => Promise<unknown>;
 
 export interface RouteConfig {
 	method: "GET" | "POST";
@@ -135,9 +137,16 @@ export function createRoutes(busApi: BusApi, regApi: RegApi): RouteConfig[] {
 		{
 			method: "GET",
 			path: "/bus/schedule",
-			handler: async () => {
+			handler: async (_body, query) => {
 				try {
-					return await busApi.getSchedule();
+					const pageParam = query?.get("page");
+					const page = pageParam ? parseInt(pageParam, 10) : undefined;
+
+					if (pageParam && (isNaN(page!) || page! < 1)) {
+						throw new ApiError("Page must be a positive number", 400, "validation");
+					}
+
+					return await busApi.getSchedule(undefined, page);
 				} catch (error) {
 					handleApiError(error);
 				}
@@ -152,7 +161,39 @@ export function createRoutes(busApi: BusApi, regApi: RegApi): RouteConfig[] {
 					if (!data) {
 						throw new ApiError("Confirmation data is required", 400, "validation");
 					}
-					const response = await busApi.confirmReservation(data);
+					const response = await busApi.confirmReservation(data, undefined);
+					return { success: true, data: response.data };
+				} catch (error) {
+					handleApiError(error);
+				}
+			},
+		},
+		{
+			method: "POST",
+			path: "/bus/unconfirm",
+			handler: async (body) => {
+				try {
+					const { data, oneClick } = body as { data?: string; oneClick?: boolean };
+					if (!data) {
+						throw new ApiError("Unconfirm data (scheduleId:||:date) is required", 400, "validation");
+					}
+					const response = await busApi.unconfirmReservation(data, undefined, oneClick);
+					return { success: true, data: response.data };
+				} catch (error) {
+					handleApiError(error);
+				}
+			},
+		},
+		{
+			method: "POST",
+			path: "/bus/delete",
+			handler: async (body) => {
+				try {
+					const { reservationId } = body as { reservationId?: string | number };
+					if (!reservationId) {
+						throw new ApiError("Reservation ID is required", 400, "validation");
+					}
+					const response = await busApi.deleteReservation(reservationId);
 					return { success: true, data: response.data };
 				} catch (error) {
 					handleApiError(error);
@@ -164,11 +205,11 @@ export function createRoutes(busApi: BusApi, regApi: RegApi): RouteConfig[] {
 			path: "/bus/cancel",
 			handler: async (body) => {
 				try {
-					const { data } = body as { data?: string };
-					if (!data) {
-						throw new ApiError("Cancellation data is required", 400, "validation");
+					const { reservationId } = body as { reservationId?: string | number };
+					if (!reservationId) {
+						throw new ApiError("Reservation ID is required", 400, "validation");
 					}
-					const response = await busApi.cancelReservation(data);
+					const response = await busApi.cancelReservation(reservationId);
 					return { success: true, data: response.data };
 				} catch (error) {
 					handleApiError(error);
@@ -180,15 +221,16 @@ export function createRoutes(busApi: BusApi, regApi: RegApi): RouteConfig[] {
 			path: "/bus/book",
 			handler: async (body) => {
 				try {
-					const { scheduleId, scheduleDate, destinationType } = body as {
+					const { scheduleId, scheduleDate, destinationType, oneClick } = body as {
 						scheduleId?: number;
 						scheduleDate?: string;
 						destinationType?: 1 | 2;
+						oneClick?: boolean;
 					};
 					if (!scheduleId || !scheduleDate || !destinationType) {
 						throw new ApiError("scheduleId, scheduleDate, and destinationType are required", 400, "validation");
 					}
-					const response = await busApi.bookBus(scheduleId, scheduleDate, destinationType);
+					const response = await busApi.bookBus(scheduleId, scheduleDate, destinationType, undefined, oneClick);
 					return { success: true, bookingId: response.data };
 				} catch (error) {
 					handleApiError(error);
@@ -254,8 +296,10 @@ export function printEndpoints(baseURL: string) {
 	console.log(`    POST   ${baseURL}/bus/login`);
 	console.log(`    POST   ${baseURL}/bus/login-with`);
 	console.log(`    GET    ${baseURL}/bus/available`);
-	console.log(`    GET    ${baseURL}/bus/schedule`);
+	console.log(`    GET    ${baseURL}/bus/schedule?page={number}`);
 	console.log(`    POST   ${baseURL}/bus/confirm`);
+	console.log(`    POST   ${baseURL}/bus/unconfirm`);
+	console.log(`    POST   ${baseURL}/bus/delete`);
 	console.log(`    POST   ${baseURL}/bus/cancel`);
 	console.log(`    POST   ${baseURL}/bus/book`);
 	console.log(`    GET    ${baseURL}/bus/validate`);

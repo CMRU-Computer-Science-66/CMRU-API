@@ -3,6 +3,7 @@ import type { BusApi } from "./types";
 import { SessionManager } from "./manager/session-manager";
 import { parseScheduleHTML, type ParsedScheduleData } from "./bus/parser/schedule";
 import { parseAvailableBusHTML, type AvailableBusData } from "./bus/parser/available";
+import { parseTicketHTML, type TicketInfo } from "./bus/parser/ticket";
 import type { SessionCredentials } from "../types/session";
 import { generateRandomUserAgent } from "./utilities/user-agent";
 import { formatCookies } from "./manager/cookie-manager";
@@ -223,7 +224,7 @@ export class CmruBusApiClient implements BusApi {
 		throw new Error("Login failed after all retry attempts");
 	}
 
-	public async getScheduleRaw<T = unknown>(cookies?: string | string[]): Promise<AxiosResponse<T>> {
+	public async getScheduleRaw<T = unknown>(cookies?: string | string[], page?: number): Promise<AxiosResponse<T>> {
 		if (!cookies) {
 			await this.ensureAuthenticated();
 		}
@@ -249,7 +250,8 @@ export class CmruBusApiClient implements BusApi {
 			},
 		};
 
-		const response = await this.client.get<T>("/users/schedule/showall", config);
+		const url = page && page > 1 ? `/users/schedule/showall/${page}/` : "/users/schedule/showall";
+		const response = await this.client.get<T>(url, config);
 
 		if (response.status === 302 || response.status === 301) {
 			const location = response.headers["location"];
@@ -273,8 +275,8 @@ export class CmruBusApiClient implements BusApi {
 		return response;
 	}
 
-	public async getSchedule(cookies?: string | string[]): Promise<ParsedScheduleData> {
-		const response = await this.getScheduleRaw<string>(cookies);
+	public async getSchedule(cookies?: string | string[], page?: number): Promise<ParsedScheduleData> {
+		const response = await this.getScheduleRaw<string>(cookies, page);
 		const htmlData = response.data;
 		return parseScheduleHTML(htmlData);
 	}
@@ -317,7 +319,11 @@ export class CmruBusApiClient implements BusApi {
 		return response;
 	}
 
-	public async cancelReservation(data: string, cookies?: string | string[]): Promise<AxiosResponse<string>> {
+	public async cancelReservation(reservationId: string | number, cookies?: string | string[]): Promise<AxiosResponse<string>> {
+		return this.deleteReservation(reservationId, cookies);
+	}
+
+	public async unconfirmReservation(data: string, cookies?: string | string[], oneClick: boolean = false): Promise<AxiosResponse<string>> {
 		if (!cookies) {
 			await this.ensureAuthenticated();
 		}
@@ -348,15 +354,65 @@ export class CmruBusApiClient implements BusApi {
 		const url = `/users/schedule/unconfirmreserv?data=${encodedData}`;
 		const response = await this.client.get<string>(url, config);
 
-		if (response.status !== 200) {
-			throw new Error(`Failed to cancel reservation: ${response.status}`);
+		if (response.status !== 200 && response.status !== 302) {
+			throw new Error(`Failed to unconfirm reservation: ${response.status}`);
+		}
+
+		if (oneClick) {
+			try {
+				const schedule = await this.getSchedule(cookiesToUse);
+				const [countIdStr] = data.split(":||:");
+				const reservation = schedule.reservations.find((reservation) => {
+					const reservationData = reservation.confirmation.unconfirmData || reservation.confirmation.confirmData;
+					return reservationData && reservationData.includes(countIdStr || "");
+				});
+
+				if (reservation && reservation.actions.reservationId) {
+					await this.deleteReservation(reservation.actions.reservationId, cookiesToUse);
+				}
+			} catch (error) {
+				throw new Error(`Unconfirm succeeded but auto-deletion failed: ${error instanceof Error ? error.message : String(error)}`);
+			}
 		}
 
 		return response;
 	}
 
-	public async unconfirmReservation(data: string, cookies?: string | string[]): Promise<AxiosResponse<string>> {
-		return this.cancelReservation(data, cookies);
+	public async deleteReservation(reservationId: string | number, cookies?: string | string[]): Promise<AxiosResponse<string>> {
+		if (!cookies) {
+			await this.ensureAuthenticated();
+		}
+
+		const cookiesToUse = cookies || this.sessionManager.getCookies();
+
+		if (!cookiesToUse) {
+			throw new Error("No authentication cookies available. Please call login() first or provide cookies manually.");
+		}
+
+		const cookieString = formatCookies(cookiesToUse);
+		const headers = this.generateHeaders();
+		const config: AxiosRequestConfig = {
+			withCredentials: true,
+			headers: {
+				...headers,
+				Cookie: cookieString,
+				Referer: "https://cmrubus.cmru.ac.th/users/schedule/showall",
+				"X-Requested-With": "XMLHttpRequest",
+			},
+			maxRedirects: 0,
+			validateStatus: (status) => {
+				return status >= 200 && status < 400;
+			},
+		};
+
+		const url = `/users/schedule/delt/${reservationId}`;
+		const response = await this.client.get<string>(url, config);
+
+		if (response.status !== 200 && response.status !== 302 && response.status !== 307) {
+			throw new Error(`Failed to delete reservation: ${response.status}`);
+		}
+
+		return response;
 	}
 
 	public async getBusStops<T = unknown>(): Promise<AxiosResponse<T>> {
@@ -413,7 +469,7 @@ export class CmruBusApiClient implements BusApi {
 		return parseAvailableBusHTML(htmlData);
 	}
 
-	public async bookBus(scheduleId: number, scheduleDate: string, destinationType: 1 | 2, cookies?: string | string[]): Promise<AxiosResponse<number>> {
+	public async bookBus(scheduleId: number, scheduleDate: string, destinationType: 1 | 2, cookies?: string | string[], oneClick: boolean = false): Promise<AxiosResponse<number>> {
 		if (!cookies) {
 			await this.ensureAuthenticated();
 		}
@@ -447,6 +503,119 @@ export class CmruBusApiClient implements BusApi {
 
 		if (response.status !== 200) {
 			throw new Error(`Failed to book bus: ${response.status}`);
+		}
+
+		if (oneClick) {
+			try {
+				const schedule = await this.getSchedule(cookiesToUse);
+				const targetDate = new Date(scheduleDate);
+				const reservation = schedule.reservations.find((r) => {
+					const resDate = new Date(r.date);
+					return (
+						resDate.getFullYear() === targetDate.getFullYear() &&
+						resDate.getMonth() === targetDate.getMonth() &&
+						resDate.getDate() === targetDate.getDate() &&
+						r.confirmation.canConfirm
+					);
+				});
+
+				if (!reservation || !reservation.confirmation.confirmData) {
+					throw new Error("Booking succeeded but could not find reservation for auto-confirmation");
+				}
+
+				await this.confirmReservation(reservation.confirmation.confirmData, cookiesToUse);
+			} catch (error) {
+				throw new Error(`Booking succeeded but auto-confirmation failed: ${error instanceof Error ? error.message : String(error)}`);
+			}
+		}
+
+		return response;
+	}
+
+	public async getTicket<T = unknown>(showticketUrl: string, cookies?: string | string[]): Promise<AxiosResponse<T>> {
+		if (!cookies) {
+			await this.ensureAuthenticated();
+		}
+
+		const cookiesToUse = cookies || this.sessionManager.getCookies();
+
+		if (!cookiesToUse) {
+			throw new Error("No authentication cookies available. Please call login() first or provide cookies manually.");
+		}
+
+		const cookieString = formatCookies(cookiesToUse);
+		const headers = this.generateHeaders();
+		const config: AxiosRequestConfig = {
+			withCredentials: true,
+			headers: {
+				...headers,
+				Cookie: cookieString,
+				Referer: "https://cmrubus.cmru.ac.th/users/schedule/showall",
+			},
+			maxRedirects: 0,
+			validateStatus: (status) => {
+				return status >= 200 && status < 400;
+			},
+		};
+
+		const response = await this.client.get<T>(showticketUrl, config);
+
+		if (response.status === 302 || response.status === 301) {
+			const location = response.headers["location"];
+
+			if (location === "https://cmrubus.cmru.ac.th/" || location === "/") {
+				throw new Error("Session expired or invalid. Please login again.");
+			}
+		}
+
+		if (response.status !== 200) {
+			throw new Error(`Unexpected response status: ${response.status}`);
+		}
+
+		return response;
+	}
+
+	public async getTicketInfo(showticketUrl: string, cookies?: string | string[]): Promise<TicketInfo> {
+		const response = await this.getTicket<string>(showticketUrl, cookies);
+		const htmlData = response.data;
+		return parseTicketHTML(htmlData);
+	}
+
+	public async getTicketQRCodeImage(showticketUrl: string, cookies?: string | string[]): Promise<AxiosResponse<Buffer>> {
+		const ticketInfo = await this.getTicketInfo(showticketUrl, cookies);
+		const qrImageUrl = ticketInfo.qrCode.imageUrl;
+
+		if (!qrImageUrl) {
+			throw new Error("QR code image URL not found in ticket");
+		}
+
+		const cookiesToUse = cookies || this.sessionManager.getCookies();
+
+		if (!cookiesToUse) {
+			throw new Error("No authentication cookies available.");
+		}
+
+		const cookieString = formatCookies(cookiesToUse);
+		const headers = this.generateHeaders();
+		const fullQrImageUrl = qrImageUrl.startsWith("http") ? qrImageUrl : `https://cmrubus.cmru.ac.th${qrImageUrl}`;
+
+		const config: AxiosRequestConfig = {
+			withCredentials: true,
+			headers: {
+				...headers,
+				Cookie: cookieString,
+				Referer: `https://cmrubus.cmru.ac.th${showticketUrl}`,
+			},
+			responseType: "arraybuffer",
+			validateStatus: (status) => {
+				return status >= 200 && status < 400;
+			},
+		};
+
+		const response = await this.client.get<Buffer>(fullQrImageUrl, config);
+
+		if (response.status !== 200) {
+			throw new Error(`Failed to get QR code image: ${response.status}`);
 		}
 
 		return response;

@@ -78,7 +78,7 @@ if (isBun) {
 				if (req.method === "POST") {
 					try {
 						const body = await req.json();
-						const data = await route.handler(body);
+						const data = await route.handler(body, url.searchParams);
 						return jsonResponse(data);
 					} catch (error) {
 						if (error instanceof Error && error.message.includes("JSON")) {
@@ -91,7 +91,7 @@ if (isBun) {
 					}
 				} else {
 					try {
-						const data = await route.handler();
+						const data = await route.handler(undefined, url.searchParams);
 						return jsonResponse(data);
 					} catch (error) {
 						if (error instanceof ApiError) {
@@ -187,7 +187,7 @@ if (isBun) {
 						void (async () => {
 							try {
 								const parsedBody = JSON.parse(body);
-								const data = await route.handler(parsedBody);
+								const data = await route.handler(parsedBody, url.searchParams);
 								sendJSON(res, data);
 							} catch (error) {
 								if (error instanceof ApiError) {
@@ -200,7 +200,7 @@ if (isBun) {
 					});
 				} else {
 					try {
-						const data = await route.handler();
+						const data = await route.handler(undefined, url.searchParams);
 						sendJSON(res, data);
 					} catch (error) {
 						if (error instanceof ApiError) {

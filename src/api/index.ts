@@ -5,6 +5,7 @@ export * from "./bus.api";
 export * from "./reg.api";
 export * from "./bus/parser/available";
 export * from "./bus/parser/schedule";
+export * from "./bus/parser/ticket";
 export * from "./reg/parser/student";
 export * from "./reg/parser/timetable";
 export * from "./manager/session-manager";
