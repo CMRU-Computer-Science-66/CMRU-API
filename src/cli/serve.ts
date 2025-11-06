@@ -37,6 +37,18 @@ if (isBun) {
 		});
 	}
 
+	function binaryResponse(data: Buffer, status = 200, contentType = "image/png"): Response {
+		return new Response(new Uint8Array(data), {
+			status,
+			headers: {
+				"Content-Type": contentType,
+				"Access-Control-Allow-Origin": "*",
+				"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+				"Access-Control-Allow-Headers": "Content-Type",
+			},
+		});
+	}
+
 	function errorResponse(message: string, status = 400, errorType?: string): Response {
 		const responseData: { error: string; errorType?: string } = { error: message };
 		if (errorType) {
@@ -92,6 +104,9 @@ if (isBun) {
 				} else {
 					try {
 						const data = await route.handler(undefined, url.searchParams);
+						if (Buffer.isBuffer(data)) {
+							return binaryResponse(data);
+						}
 						return jsonResponse(data);
 					} catch (error) {
 						if (error instanceof ApiError) {
@@ -139,6 +154,16 @@ if (isBun) {
 	function sendJSON(res: ServerResponse, data: unknown, status = 200) {
 		res.writeHead(status, { "Content-Type": "application/json" });
 		res.end(JSON.stringify(data));
+	}
+
+	function sendBinary(res: ServerResponse, data: Buffer, status = 200, contentType = "image/png") {
+		res.writeHead(status, {
+			"Content-Type": contentType,
+			"Access-Control-Allow-Origin": "*",
+			"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+			"Access-Control-Allow-Headers": "Content-Type",
+		});
+		res.end(data);
 	}
 
 	function sendError(res: ServerResponse, message: string, status = 400, errorType?: string) {
@@ -201,7 +226,12 @@ if (isBun) {
 				} else {
 					try {
 						const data = await route.handler(undefined, url.searchParams);
-						sendJSON(res, data);
+
+						if (Buffer.isBuffer(data)) {
+							sendBinary(res, data);
+						} else {
+							sendJSON(res, data);
+						}
 					} catch (error) {
 						if (error instanceof ApiError) {
 							sendError(res, error.message, error.statusCode, error.errorType);

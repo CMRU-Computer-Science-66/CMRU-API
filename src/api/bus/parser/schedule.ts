@@ -19,9 +19,9 @@ export enum ConfirmationStatus {
 export interface ScheduleReservation {
 	id: number;
 	ticket: {
+		id: number | null;
 		hasQRCode: boolean;
 		status: string;
-		showticket: string | null;
 	};
 	destination: {
 		name: string;
@@ -89,11 +89,9 @@ export function parseScheduleHTML(html: string): ParsedScheduleData {
 		if ($cells.length < 6) return;
 
 		const id = parseInt($cells.eq(0).text().trim());
-
 		const ticketCell = $cells.eq(1);
-		const hasQRCode = ticketCell.find("i.fa-qrcode").length > 0;
 
-		let showticket = null;
+		let ticketId = null;
 		const qrLink = ticketCell.find("a");
 
 		if (qrLink.length > 0) {
@@ -101,10 +99,16 @@ export function parseScheduleHTML(html: string): ParsedScheduleData {
 			const urlMatch = onclickAttr?.match(/openNewWindow\('([^']+)'\)/);
 
 			if (urlMatch && urlMatch[1]) {
-				showticket = urlMatch[1];
-				console.log(urlMatch[1]);
+				const fullUrl = urlMatch[1];
+				const pathMatch = fullUrl.match(/\/users\/schedule\/showticket\/(\d+)/);
+
+				if (pathMatch && pathMatch[1]) {
+					ticketId = parseInt(pathMatch[1]);
+				}
 			}
 		}
+
+		const hasQRCode = ticketId !== null && ticketCell.find("i.fa-qrcode").length > 0;
 
 		let ticketStatus;
 		if (hasQRCode) {
@@ -239,9 +243,9 @@ export function parseScheduleHTML(html: string): ParsedScheduleData {
 		reservations.push({
 			id,
 			ticket: {
+				id: ticketId,
 				hasQRCode,
 				status: ticketStatus,
-				showticket,
 			},
 			destination: {
 				name: destinationName,
