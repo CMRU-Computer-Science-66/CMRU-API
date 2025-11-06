@@ -1,8 +1,10 @@
 import type { BusApi, RegApi } from "../api/types";
+import { UserType } from "../api/bus.api";
 
 export const API_ENDPOINTS = {
 	bus: {
 		login: "POST /bus/login",
+		loginWith: "POST /bus/login-with",
 		availableBuses: "GET /bus/available",
 		schedule: "GET /bus/schedule",
 		confirmReservation: "POST /bus/confirm",
@@ -42,25 +44,34 @@ function handleApiError(error: unknown): never {
 	}
 
 	if (error instanceof Error) {
-		const message = error.message.toLowerCase();
+		const message = error.message;
+		const messageLower = message.toLowerCase();
 
-		if (message.includes("invalid username or password") || message.includes("login failed")) {
-			throw new ApiError("Invalid username or password", 401, "auth");
+		if (message.includes("กรุณาป้อนรหัสประจำตัวและรหัสผ่านให้ถูกต้อง")) {
+			throw new ApiError(message, 401, "auth");
 		}
 
-		if (message.includes("session expired") || message.includes("please login again")) {
+		if (message.includes("ไม่สามารถเข้าสู่ระบบได้เนื่องจากระบุรหัสผิดเกิน")) {
+			throw new ApiError(message, 429, "auth");
+		}
+
+		if (messageLower.includes("invalid username or password") || messageLower.includes("login failed")) {
+			throw new ApiError(message, 401, "auth");
+		}
+
+		if (messageLower.includes("session expired") || messageLower.includes("please login again")) {
 			throw new ApiError("Session expired. Please login again", 401, "session");
 		}
 
-		if (message.includes("no authentication cookies") || message.includes("no credentials available")) {
+		if (messageLower.includes("no authentication cookies") || messageLower.includes("no credentials available")) {
 			throw new ApiError("Authentication required. Please login first", 401, "auth");
 		}
 
-		if (message.includes("timeout") || message.includes("network") || message.includes("econnrefused")) {
+		if (messageLower.includes("timeout") || messageLower.includes("network") || messageLower.includes("econnrefused")) {
 			throw new ApiError("Network error. Please try again", 503, "network");
 		}
 
-		if (message.includes("unexpected response status") || message.includes("failed to")) {
+		if (messageLower.includes("unexpected response status") || messageLower.includes("failed to")) {
 			throw new ApiError(error.message, 502, "server");
 		}
 
@@ -82,6 +93,28 @@ export function createRoutes(busApi: BusApi, regApi: RegApi): RouteConfig[] {
 						throw new ApiError("Username and password are required", 400, "validation");
 					}
 					await busApi.login({ username, password });
+					return { success: true, message: "Logged in successfully" };
+				} catch (error) {
+					handleApiError(error);
+				}
+			},
+		},
+		{
+			method: "POST",
+			path: "/bus/login-with",
+			handler: async (body) => {
+				try {
+					const { username, password, userType } = body as { username?: string; password?: string; userType?: UserType };
+
+					if (!username || !password) {
+						throw new ApiError("Username and password are required", 400, "validation");
+					}
+
+					if (userType !== undefined && userType !== UserType.STUDENT && userType !== UserType.STAFF) {
+						throw new ApiError("userType must be either '1' (STUDENT) or '2' (STAFF)", 400, "validation");
+					}
+
+					await busApi.loginWith({ username, password }, userType);
 					return { success: true, message: "Logged in successfully" };
 				} catch (error) {
 					handleApiError(error);
@@ -219,6 +252,7 @@ export function printEndpoints(baseURL: string) {
 	console.log("\nAvailable endpoints:");
 	console.log("  Bus API:");
 	console.log(`    POST   ${baseURL}/bus/login`);
+	console.log(`    POST   ${baseURL}/bus/login-with`);
 	console.log(`    GET    ${baseURL}/bus/available`);
 	console.log(`    GET    ${baseURL}/bus/schedule`);
 	console.log(`    POST   ${baseURL}/bus/confirm`);

@@ -13,3 +13,4 @@ export * from "../config/servers";
 export * from "../types/common";
 export * from "../types/session";
 export * from "../types/schedule";
+export { UserType } from "./bus.api";

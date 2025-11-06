@@ -7,6 +7,13 @@ import type { SessionCredentials } from "../types/session";
 import { generateRandomUserAgent } from "./utilities/user-agent";
 import { formatCookies } from "./manager/cookie-manager";
 
+type LoginResponseCode = 1 | 2 | 3 | 5 | 8 | "EMPTY" | "OTHER";
+
+export enum UserType {
+	STUDENT = "1",
+	STAFF = "2",
+}
+
 export class CmruBusApiClient implements BusApi {
 	private sessionManager: SessionManager;
 
@@ -24,8 +31,36 @@ export class CmruBusApiClient implements BusApi {
 		};
 	}
 
+	private parseSetCookie(raw: string | string[] | null): string {
+		if (!raw) return "";
+		if (Array.isArray(raw)) {
+			return raw
+				.map((cookie) => (cookie.split(";")[0] ?? "").trim())
+				.filter(Boolean)
+				.join("; ");
+		}
+		const parts = raw.split(/,(?=\s*\w+=)/);
+		const cookies = parts.map((s) => (s.split(";")[0] ?? "").trim());
+		return cookies.join("; ");
+	}
+
+	private interpretLoginResponse(text: string): LoginResponseCode {
+		const t = (text ?? "").trim();
+		if (t === "") return "EMPTY";
+		if (["1", "2", "3", "5", "8"].includes(t)) return Number(t) as LoginResponseCode;
+		return "OTHER";
+	}
+
+	private createLoginPayload(username: string, password: string, userType: UserType = UserType.STUDENT): string {
+		return `${username}:||:${password}:||:${userType}`;
+	}
+
 	async login<T = unknown>(credentials: SessionCredentials): Promise<AxiosResponse<T>> {
-		const response = await this.getSession<T>(credentials.username, credentials.password);
+		return this.loginWith<T>(credentials, UserType.STUDENT);
+	}
+
+	async loginWith<T = unknown>(credentials: SessionCredentials, userType: UserType = UserType.STUDENT): Promise<AxiosResponse<T>> {
+		const response = await this.getSession<T>(credentials.username, credentials.password, userType);
 
 		if (response.headers["set-cookie"]) {
 			this.sessionManager.setSession(credentials.username, credentials.password, response.headers["set-cookie"]);
@@ -45,13 +80,17 @@ export class CmruBusApiClient implements BusApi {
 	private async ensureAuthenticated(): Promise<void> {
 		await this.sessionManager.ensureLoggedIn(async () => {
 			const credentials = this.sessionManager.getCredentials();
+
 			if (!credentials) {
 				throw new Error("No credentials available for auto re-login");
 			}
-			const response = await this.getSession(credentials.username, credentials.password);
+
+			const response = await this.getSession(credentials.username, credentials.password, UserType.STUDENT);
+
 			if (!response.headers["set-cookie"]) {
 				throw new Error("Login failed - no cookies received");
 			}
+
 			return { cookies: response.headers["set-cookie"] };
 		});
 	}
@@ -79,37 +118,98 @@ export class CmruBusApiClient implements BusApi {
 		}
 	}
 
-	public async getSession<T = unknown>(username: string, password: string, retries = 3): Promise<AxiosResponse<T>> {
-		const data = `${username}:||:${password}:||:1`;
-		const encodedData = encodeURIComponent(data);
-
+	public async getSession<T = unknown>(username: string, password: string, userType: UserType = UserType.STUDENT, retries = 3): Promise<AxiosResponse<T>> {
+		const loginPage = "/user/login";
+		const checkUrl = "/user/userloginchk";
 		const headers = this.generateHeaders();
 
-		const config: AxiosRequestConfig = {
-			withCredentials: true,
-			headers: {
-				...headers,
-				"X-Requested-With": "XMLHttpRequest",
-			},
-			maxRedirects: 0,
-			validateStatus: (status) => {
-				return status >= 200 && status < 400;
-			},
-		};
+		let cookieHeader = "";
+		try {
+			const bootResponse = await this.client.get(loginPage, {
+				headers: {
+					Accept: "text/html,application/xhtml+xml",
+					...headers,
+				},
+				validateStatus: (status) => status >= 200 && status < 400,
+			});
+
+			cookieHeader = this.parseSetCookie(bootResponse.headers["set-cookie"] || null);
+		} catch (error) {
+			console.warn("Failed to get initial session cookie:", error);
+		}
+
+		const data = this.createLoginPayload(username, password, userType);
 
 		for (let attempt = 1; attempt <= retries; attempt++) {
 			try {
-				const response = await this.client.get<T>(`/user/userloginchk?data=${encodedData}`, config);
+				let text = "";
+				let code: LoginResponseCode = "EMPTY";
+				let successResponse: AxiosResponse<string> | null = null;
 
-				if (response.status === 302 || response.status === 301) {
-					throw new Error("Login failed - invalid username or password");
+				try {
+					const formData = new URLSearchParams({ data });
+					const postConfig: AxiosRequestConfig = {
+						withCredentials: true,
+						headers: {
+							"Content-Type": "application/x-www-form-urlencoded",
+							"X-Requested-With": "XMLHttpRequest",
+							Accept: "*/*",
+							...(cookieHeader ? { Cookie: cookieHeader } : {}),
+							Referer: `https://cmrubus.cmru.ac.th${loginPage}`,
+							...headers,
+						},
+						validateStatus: (status) => status >= 200 && status < 400,
+						responseType: "text",
+					};
+
+					const postResponse = await this.client.post<string>(checkUrl, formData.toString(), postConfig);
+					text = String(postResponse.data ?? "");
+					code = this.interpretLoginResponse(text);
+					successResponse = postResponse;
+				} catch (postError) {
+					console.warn("POST method failed, will try GET:", postError);
 				}
 
-				if (response.status !== 200) {
-					throw new Error(`Unexpected login response status: ${response.status}`);
+				if (code === "EMPTY" || code === "OTHER") {
+					const url = `${checkUrl}?data=${encodeURIComponent(data)}`;
+					const getConfig: AxiosRequestConfig = {
+						withCredentials: true,
+						headers: {
+							"X-Requested-With": "XMLHttpRequest",
+							Accept: "*/*",
+							...(cookieHeader ? { Cookie: cookieHeader } : {}),
+							Referer: `https://cmrubus.cmru.ac.th${loginPage}`,
+							...headers,
+						},
+						validateStatus: (status) => status >= 200 && status < 400,
+						responseType: "text",
+					};
+
+					const getResponse = await this.client.get<string>(url, getConfig);
+					text = String(getResponse.data ?? "");
+					code = this.interpretLoginResponse(text);
+					successResponse = getResponse;
 				}
 
-				return response;
+				if (code === 1 || code === 2 || code === 3) {
+					if (successResponse && successResponse.headers["set-cookie"]) {
+						return successResponse as AxiosResponse<T>;
+					}
+
+					if (successResponse) {
+						return successResponse as AxiosResponse<T>;
+					}
+
+					throw new Error("Login succeeded but no response available");
+				} else if (code === 5) {
+					throw new Error("Login blocked (code 5): ต้องปรับปรุงข้อมูลบุคลากรที่ ePersonal");
+				} else if (code === 8) {
+					throw new Error("Login blocked (code 8): ให้บริการเฉพาะนักศึกษาวิทยาเขตแม่ริม");
+				} else if (code === "EMPTY") {
+					throw new Error("Login failed: Empty response (invalid username/password or session issue)");
+				} else {
+					throw new Error(`Login failed: Unexpected response - ${JSON.stringify(text)}`);
+				}
 			} catch (error) {
 				if (error instanceof Error && error.message.includes("timeout") && attempt < retries) {
 					await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
