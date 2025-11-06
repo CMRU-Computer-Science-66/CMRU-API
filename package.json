@@ -58,7 +58,7 @@
 	],
 	"scripts": {
 		"build": "tsup",
-		"dev": "tsup --watch . --onSuccess 'bun run test.ts'",
+		"dev": "tsup --watch . --onSuccess 'clear && tsx test.ts'",
 		"docs": "typedoc",
 		"fix": "eslint . --fix",
 		"preinstall": "npx only-allow bun",
@@ -101,6 +101,7 @@
 		"prettier-plugin-sort-json": "4.1.1",
 		"puppeteer": "24.28.0",
 		"tsup": "8.5.0",
+		"tsx": "4.20.6",
 		"typedoc": "0.28.14",
 		"typescript": "5.9.3",
 		"typescript-eslint": "8.46.3"
