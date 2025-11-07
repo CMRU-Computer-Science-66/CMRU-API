@@ -14,6 +14,7 @@ export const API_ENDPOINTS = {
 		bookBus: "POST /bus/book",
 		validateSession: "GET /bus/validate",
 		ticketQRCode: "GET /bus/ticket/qrcode?ticketId={number}",
+		ticketInfo: "GET /bus/ticket/info?ticketId={number}",
 	},
 	reg: {
 		login: "POST /reg/login",
@@ -275,6 +276,24 @@ export function createRoutes(busApi: BusApi, regApi: RegApi): RouteConfig[] {
 			},
 		},
 		{
+			method: "GET",
+			path: "/bus/ticket/info",
+			handler: async (_body, query) => {
+				try {
+					const ticketId = query?.get("ticketId");
+					if (!ticketId) {
+						throw new ApiError("ticketId parameter is required", 400, "validation");
+					}
+
+					const showticketUrl = `/users/schedule/showticket/${ticketId}`;
+					const ticketInfo = await busApi.getTicketInfo(showticketUrl);
+					return ticketInfo;
+				} catch (error) {
+					handleApiError(error);
+				}
+			},
+		},
+		{
 			method: "POST",
 			path: "/reg/login",
 			handler: async (body) => {
@@ -329,6 +348,7 @@ export function printEndpoints(baseURL: string) {
 	console.log(`    POST   ${baseURL}/bus/book`);
 	console.log(`    GET    ${baseURL}/bus/validate`);
 	console.log(`    GET    ${baseURL}/bus/ticket/qrcode?ticketId={number}`);
+	console.log(`    GET    ${baseURL}/bus/ticket/info?ticketId={number}`);
 	console.log("  Reg API:");
 	console.log(`    POST   ${baseURL}/reg/login`);
 	console.log(`    GET    ${baseURL}/reg/student`);
