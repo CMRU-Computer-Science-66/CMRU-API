@@ -112,9 +112,9 @@ export function parseScheduleHTML(html: string): ParsedScheduleData {
 
 		let ticketStatus;
 		if (hasQRCode) {
-			ticketStatus = qrLink.text().trim() || "มี QRCode";
+			ticketStatus = qrLink.text().trim() || "รอเดินทาง";
 		} else {
-			ticketStatus = ticketCell.text().trim() || "-";
+			ticketStatus = ticketCell.text().trim() || "รอถึงเวลา";
 		}
 
 		const destinationCell = $cells.eq(2);

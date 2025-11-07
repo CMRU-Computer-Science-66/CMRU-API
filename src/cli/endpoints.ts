@@ -6,7 +6,7 @@ export const API_ENDPOINTS = {
 		login: "POST /bus/login",
 		loginWith: "POST /bus/login-with",
 		availableBuses: "GET /bus/available",
-		schedule: "GET /bus/schedule?page={number}",
+		schedule: "GET /bus/schedule?page={number}&perPage={number}",
 		confirmReservation: "POST /bus/confirm",
 		unconfirmReservation: "POST /bus/unconfirm",
 		deleteReservation: "POST /bus/delete",
@@ -141,13 +141,19 @@ export function createRoutes(busApi: BusApi, regApi: RegApi): RouteConfig[] {
 			handler: async (_body, query) => {
 				try {
 					const pageParam = query?.get("page");
+					const perPageParam = query?.get("perPage");
 					const page = pageParam ? parseInt(pageParam, 10) : undefined;
+					const perPage = perPageParam ? parseInt(perPageParam, 10) : 10;
 
 					if (pageParam && (isNaN(page!) || page! < 1)) {
 						throw new ApiError("Page must be a positive number", 400, "validation");
 					}
 
-					return await busApi.getSchedule(undefined, page);
+					if (perPageParam && (isNaN(perPage) || perPage < 1)) {
+						throw new ApiError("perPage must be a positive number", 400, "validation");
+					}
+
+					return await busApi.getSchedule(undefined, page, perPage);
 				} catch (error) {
 					handleApiError(error);
 				}
@@ -315,7 +321,7 @@ export function printEndpoints(baseURL: string) {
 	console.log(`    POST   ${baseURL}/bus/login`);
 	console.log(`    POST   ${baseURL}/bus/login-with`);
 	console.log(`    GET    ${baseURL}/bus/available`);
-	console.log(`    GET    ${baseURL}/bus/schedule?page={number}`);
+	console.log(`    GET    ${baseURL}/bus/schedule?page={number}&perPage={number}`);
 	console.log(`    POST   ${baseURL}/bus/confirm`);
 	console.log(`    POST   ${baseURL}/bus/unconfirm`);
 	console.log(`    POST   ${baseURL}/bus/delete`);

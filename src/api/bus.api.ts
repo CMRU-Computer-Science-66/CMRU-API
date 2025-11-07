@@ -224,7 +224,7 @@ export class CmruBusApiClient implements BusApi {
 		throw new Error("Login failed after all retry attempts");
 	}
 
-	public async getScheduleRaw<T = unknown>(cookies?: string | string[], page?: number): Promise<AxiosResponse<T>> {
+	public async getScheduleRaw<T = unknown>(cookies?: string | string[], page?: number, _perPage?: number): Promise<AxiosResponse<T>> {
 		if (!cookies) {
 			await this.ensureAuthenticated();
 		}
@@ -250,7 +250,7 @@ export class CmruBusApiClient implements BusApi {
 			},
 		};
 
-		const url = page && page > 1 ? `/users/schedule/showall/${page}/` : "/users/schedule/showall";
+		const url = `/users/schedule/showall/${page || 1}/`;
 		const response = await this.client.get<T>(url, config);
 
 		if (response.status === 302 || response.status === 301) {
@@ -275,10 +275,51 @@ export class CmruBusApiClient implements BusApi {
 		return response;
 	}
 
-	public async getSchedule(cookies?: string | string[], page?: number): Promise<ParsedScheduleData> {
-		const response = await this.getScheduleRaw<string>(cookies, page);
-		const htmlData = response.data;
-		return parseScheduleHTML(htmlData);
+	public async getSchedule(cookies?: string | string[], page: number = 1, perPage: number = 10): Promise<ParsedScheduleData> {
+		const allReservations: ParsedScheduleData["reservations"] = [];
+		let totalReservations = 0;
+		let userInfo = { name: "" };
+		let serverPage = 1;
+
+		const firstResponse = await this.getScheduleRaw<string>(cookies, serverPage);
+		const firstData = parseScheduleHTML(firstResponse.data);
+		totalReservations = firstData.totalReservations;
+		userInfo = firstData.userInfo;
+		allReservations.push(...firstData.reservations);
+
+		while (allReservations.length < totalReservations) {
+			serverPage++;
+			try {
+				const response = await this.getScheduleRaw<string>(cookies, serverPage);
+				const parsedData = parseScheduleHTML(response.data);
+
+				if (parsedData.reservations.length === 0) {
+					break;
+				}
+
+				allReservations.push(...parsedData.reservations);
+			} catch {
+				break;
+			}
+		}
+
+		const totalPages = Math.ceil(totalReservations / perPage);
+		const startIndex = (page - 1) * perPage;
+		const endIndex = startIndex + perPage;
+		const paginatedReservations = allReservations.slice(startIndex, endIndex);
+
+		const hasNextPage = page < totalPages;
+		const hasPrevPage = page > 1;
+
+		return {
+			userInfo,
+			totalReservations,
+			currentPage: page,
+			totalPages,
+			hasNextPage,
+			hasPrevPage,
+			reservations: paginatedReservations,
+		};
 	}
 
 	public async confirmReservation(data: string, cookies?: string | string[]): Promise<AxiosResponse<string>> {
