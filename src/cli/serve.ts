@@ -29,16 +29,36 @@ if (pinArgIndex !== -1 && pinArgIndex + 1 < process.argv.length) {
 	logger.info("Using default encryption PIN");
 }
 
-(globalThis as { encryptionPin?: string }).encryptionPin = encryptionPin;
+function createApiClients(_requestId: string) {
+	(globalThis as { encryptionPin?: string }).encryptionPin = encryptionPin;
+	const busClient = new ApiClient(ApiServer.BUS);
+	const regClient = new ApiClient(ApiServer.REG);
+	const busApi = busClient.api();
+	const regApi = regClient.api();
 
-const busClient = new ApiClient(ApiServer.BUS);
-const regClient = new ApiClient(ApiServer.REG);
+	return {
+		busApi,
+		regApi,
+		cleanup: () => {
+			if (busApi && "getSessionManager" in busApi && typeof busApi.getSessionManager === "function") {
+				const sessionManager = busApi.getSessionManager();
+				sessionManager.clearSession();
+			}
 
-const busApi = busClient.api();
-const regApi = regClient.api();
+			if (regApi && "getSessionManager" in regApi && typeof regApi.getSessionManager === "function") {
+				const sessionManager = regApi.getSessionManager();
+				sessionManager.clearSession();
+			}
+		},
+	};
+}
 
-const routes = createRoutes(busApi, regApi);
+const tempBusClient = new ApiClient(ApiServer.BUS);
+const tempRegClient = new ApiClient(ApiServer.REG);
+const tempBusApi = tempBusClient.api();
+const tempRegApi = tempRegClient.api();
 
+const routes = createRoutes(tempBusApi, tempRegApi);
 const isBun = typeof Bun !== "undefined";
 
 if (isBun) {
@@ -111,45 +131,59 @@ if (isBun) {
 				const route = routes.find((r) => r.path === pathname && r.method === req.method);
 
 				if (route) {
-					const headersObj: Record<string, string> = {};
-					req.headers.forEach((value, key) => {
-						headersObj[key] = value;
-					});
+					const { busApi, regApi, cleanup } = createApiClients(requestId);
 
-					if (req.method === "POST") {
-						try {
-							const body = await req.json();
-							const data = await route.handler(body, url.searchParams, headersObj);
-							response = jsonResponse(data);
-						} catch (error) {
-							if (error instanceof Error && error.message.includes("JSON")) {
-								statusCode = 400;
-								response = errorResponse("Invalid JSON body", 400);
-							} else if (error instanceof ApiError) {
-								statusCode = error.statusCode;
-								response = errorResponse(error.message, error.statusCode, error.errorType);
+					try {
+						const isolatedRoutes = createRoutes(busApi, regApi);
+						const isolatedRoute = isolatedRoutes.find((r) => r.path === pathname && r.method === req.method);
+
+						if (!isolatedRoute) {
+							statusCode = 404;
+							response = errorResponse("Endpoint not found", 404);
+						} else {
+							const headersObj: Record<string, string> = {};
+							req.headers.forEach((value, key) => {
+								headersObj[key] = value;
+							});
+
+							if (req.method === "POST") {
+								try {
+									const body = await req.json();
+									const data = await isolatedRoute.handler(body, url.searchParams, headersObj);
+									response = jsonResponse(data);
+								} catch (error) {
+									if (error instanceof Error && error.message.includes("JSON")) {
+										statusCode = 400;
+										response = errorResponse("Invalid JSON body", 400);
+									} else if (error instanceof ApiError) {
+										statusCode = error.statusCode;
+										response = errorResponse(error.message, error.statusCode, error.errorType);
+									} else {
+										statusCode = 500;
+										response = errorResponse(error instanceof Error ? error.message : "Request failed", 500);
+									}
+								}
 							} else {
-								statusCode = 500;
-								response = errorResponse(error instanceof Error ? error.message : "Request failed", 500);
+								try {
+									const data = await isolatedRoute.handler(undefined, url.searchParams, headersObj);
+									if (Buffer.isBuffer(data)) {
+										response = binaryResponse(data);
+									} else {
+										response = jsonResponse(data);
+									}
+								} catch (error) {
+									if (error instanceof ApiError) {
+										statusCode = error.statusCode;
+										response = errorResponse(error.message, error.statusCode, error.errorType);
+									} else {
+										statusCode = 500;
+										response = errorResponse(error instanceof Error ? error.message : "Request failed", 500);
+									}
+								}
 							}
 						}
-					} else {
-						try {
-							const data = await route.handler(undefined, url.searchParams, headersObj);
-							if (Buffer.isBuffer(data)) {
-								response = binaryResponse(data);
-							} else {
-								response = jsonResponse(data);
-							}
-						} catch (error) {
-							if (error instanceof ApiError) {
-								statusCode = error.statusCode;
-								response = errorResponse(error.message, error.statusCode, error.errorType);
-							} else {
-								statusCode = 500;
-								response = errorResponse(error instanceof Error ? error.message : "Request failed", 500);
-							}
-						}
+					} finally {
+						cleanup();
 					}
 				} else {
 					statusCode = 404;
@@ -260,60 +294,78 @@ if (isBun) {
 
 			const route = routes.find((r) => r.path === pathname && r.method === req.method);
 			if (route) {
-				const headersObj: Record<string, string> = req.headers as Record<string, string>;
+				const { busApi, regApi, cleanup } = createApiClients(requestId);
 
-				if (req.method === "POST") {
-					let body = "";
-					req.on("data", (chunk) => {
-						body += chunk.toString();
-					});
-					req.on("end", () => {
-						void (async () => {
-							try {
-								const parsedBody = JSON.parse(body);
-								const data = await route.handler(parsedBody, url.searchParams, headersObj);
-								sendJSON(res, data);
-								statusCode = 200;
-							} catch (error) {
-								if (error instanceof ApiError) {
-									statusCode = error.statusCode;
-									sendError(res, error.message, error.statusCode, error.errorType);
-								} else {
-									statusCode = 500;
-									sendError(res, error instanceof Error ? error.message : "Request failed", 500);
-								}
-								logger.error("Request error", error, { requestId });
-							} finally {
-								const responseTime = performance.now() - startTime;
-								logger.request(req.method || "UNKNOWN", pathname, statusCode, responseTime, { requestId });
-								PerformanceMonitor.recordRequest(pathname, responseTime, statusCode);
-							}
-						})();
-					});
-				} else {
-					try {
-						const data = await route.handler(undefined, url.searchParams, headersObj);
+				try {
+					const isolatedRoutes = createRoutes(busApi, regApi);
+					const isolatedRoute = isolatedRoutes.find((r) => r.path === pathname && r.method === req.method);
 
-						if (Buffer.isBuffer(data)) {
-							sendBinary(res, data);
-						} else {
-							sendJSON(res, data);
-						}
-						statusCode = 200;
-					} catch (error) {
-						if (error instanceof ApiError) {
-							statusCode = error.statusCode;
-							sendError(res, error.message, error.statusCode, error.errorType);
-						} else {
-							statusCode = 500;
-							sendError(res, error instanceof Error ? error.message : "Request failed", 500);
-						}
-						logger.error("Request error", error, { requestId });
-					} finally {
-						const responseTime = performance.now() - startTime;
-						logger.request(req.method || "UNKNOWN", pathname, statusCode, responseTime, { requestId });
-						PerformanceMonitor.recordRequest(pathname, responseTime, statusCode);
+					if (!isolatedRoute) {
+						statusCode = 404;
+						sendError(res, "Endpoint not found", 404);
+						return;
 					}
+
+					const headersObj: Record<string, string> = req.headers as Record<string, string>;
+
+					if (req.method === "POST") {
+						let body = "";
+						req.on("data", (chunk) => {
+							body += chunk.toString();
+						});
+						req.on("end", () => {
+							void (async () => {
+								try {
+									const parsedBody = JSON.parse(body);
+									const data = await isolatedRoute.handler(parsedBody, url.searchParams, headersObj);
+									sendJSON(res, data);
+									statusCode = 200;
+								} catch (error) {
+									if (error instanceof ApiError) {
+										statusCode = error.statusCode;
+										sendError(res, error.message, error.statusCode, error.errorType);
+									} else {
+										statusCode = 500;
+										sendError(res, error instanceof Error ? error.message : "Request failed", 500);
+									}
+									logger.error("Request error", error, { requestId });
+								} finally {
+									const responseTime = performance.now() - startTime;
+									logger.request(req.method || "UNKNOWN", pathname, statusCode, responseTime, { requestId });
+									PerformanceMonitor.recordRequest(pathname, responseTime, statusCode);
+									cleanup();
+								}
+							})();
+						});
+					} else {
+						try {
+							const data = await isolatedRoute.handler(undefined, url.searchParams, headersObj);
+
+							if (Buffer.isBuffer(data)) {
+								sendBinary(res, data);
+							} else {
+								sendJSON(res, data);
+							}
+							statusCode = 200;
+						} catch (error) {
+							if (error instanceof ApiError) {
+								statusCode = error.statusCode;
+								sendError(res, error.message, error.statusCode, error.errorType);
+							} else {
+								statusCode = 500;
+								sendError(res, error instanceof Error ? error.message : "Request failed", 500);
+							}
+							logger.error("Request error", error, { requestId });
+						} finally {
+							const responseTime = performance.now() - startTime;
+							logger.request(req.method || "UNKNOWN", pathname, statusCode, responseTime, { requestId });
+							PerformanceMonitor.recordRequest(pathname, responseTime, statusCode);
+							cleanup();
+						}
+					}
+				} catch (error) {
+					cleanup();
+					throw error;
 				}
 				return;
 			}

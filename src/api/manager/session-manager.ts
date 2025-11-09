@@ -122,6 +122,8 @@ export class SessionManager {
 		this.sessionData = null;
 		this.isLoggingIn = false;
 		this.loginPromise = null;
+
+		SessionManager.removeInstance(this.sessionKey);
 	}
 
 	public async ensureLoggedIn(loginFn: () => Promise<{ cookies: string | string[] }>, username?: string, password?: string): Promise<void> {

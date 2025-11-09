@@ -22,7 +22,8 @@ export class CmruBusApiClient implements BusApi {
 		private client: AxiosInstance,
 		sessionKey: string = "bus",
 	) {
-		this.sessionManager = SessionManager.forBusApi(sessionKey);
+		const uniqueSessionKey = `${sessionKey}_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+		this.sessionManager = SessionManager.forBusApi(uniqueSessionKey);
 	}
 
 	private generateHeaders(): Record<string, string> {
