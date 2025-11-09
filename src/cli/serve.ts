@@ -15,7 +15,7 @@ const VERSION = packageJson.version;
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "localhost";
 
-let encryptionPin = "";
+let encryptionPin = "default";
 
 const pinArgIndex = process.argv.indexOf("--pin");
 
