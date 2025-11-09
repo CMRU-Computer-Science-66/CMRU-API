@@ -131,18 +131,23 @@ function handleApiError(error: unknown): never {
 export function createRoutes(busApi: BusApi, regApi: RegApi, _busApiFactory?: () => BusApi): RouteConfig[] {
 	async function ensureValidSession(username: string): Promise<void> {
 		try {
-			const isValid = await busApi.validateSession();
-
-			if (isValid) {
-				const storedSession = storage.getSession(username);
-				if (storedSession) {
-					storedSession.lastValidated = Date.now();
-					storage.setSession(username, storedSession);
-				}
-				return;
+			const storedSession = storage.getSession(username);
+			if (!storedSession) {
+				throw new Error("No stored session found");
 			}
-			// eslint-disable-next-line no-empty
-		} catch {}
+
+			if (busApi && "getScheduleRaw" in busApi && typeof busApi.getScheduleRaw === "function") {
+				await busApi.getScheduleRaw(storedSession.cookies);
+			} else {
+				throw new Error("Unable to validate session - getScheduleRaw method not available");
+			}
+
+			storedSession.lastValidated = Date.now();
+			storage.setSession(username, storedSession);
+			return;
+		} catch {
+			storage.deleteSession(username);
+		}
 
 		throw new ApiError("Session expired. Please login again", 401, "session");
 	}
@@ -293,13 +298,25 @@ export function createRoutes(busApi: BusApi, regApi: RegApi, _busApiFactory?: ()
 		{
 			method: "GET",
 			path: "/bus/available",
-			handler: async () => {
+			handler: async (_body, query, headers) => {
 				try {
-					return await busApi.getAvailableBuses();
+					const auth = authenticateRequest(headers || {});
+					if (!auth) {
+						throw new ApiError("Authentication required. Please login first", 401, "auth");
+					}
+
+					await ensureValidSession(auth.username);
+
+					const storedSession = storage.getSession(auth.username);
+					const sessionCookies = storedSession?.cookies;
+
+					const monthParam = query?.get("month");
+					return await busApi.getAvailableBuses(monthParam || undefined, sessionCookies);
 				} catch (error) {
 					handleApiError(error);
 				}
 			},
+			requiresAuth: true,
 		},
 		{
 			method: "GET",
@@ -312,6 +329,9 @@ export function createRoutes(busApi: BusApi, regApi: RegApi, _busApiFactory?: ()
 					}
 
 					await ensureValidSession(auth.username);
+
+					const storedSession = storage.getSession(auth.username);
+					const sessionCookies = storedSession?.cookies;
 
 					const pageParam = query?.get("page");
 					const perPageParam = query?.get("perPage");
@@ -326,7 +346,7 @@ export function createRoutes(busApi: BusApi, regApi: RegApi, _busApiFactory?: ()
 						throw new ApiError("perPage must be a positive number", 400, "validation");
 					}
 
-					return await busApi.getSchedule(undefined, page, perPage);
+					return await busApi.getSchedule(sessionCookies, page, perPage);
 				} catch (error) {
 					handleApiError(error);
 				}
@@ -345,12 +365,15 @@ export function createRoutes(busApi: BusApi, regApi: RegApi, _busApiFactory?: ()
 
 					await ensureValidSession(auth.username);
 
+					const storedSession = storage.getSession(auth.username);
+					const sessionCookies = storedSession?.cookies;
+
 					const { data } = body as { data?: string };
 					if (!data) {
 						throw new ApiError("Confirmation data is required", 400, "validation");
 					}
 
-					const response = await busApi.confirmReservation(data, undefined);
+					const response = await busApi.confirmReservation(data, sessionCookies);
 					return { success: true, data: response.data };
 				} catch (error) {
 					handleApiError(error);
@@ -370,12 +393,15 @@ export function createRoutes(busApi: BusApi, regApi: RegApi, _busApiFactory?: ()
 
 					await ensureValidSession(auth.username);
 
+					const storedSession = storage.getSession(auth.username);
+					const sessionCookies = storedSession?.cookies;
+
 					const { data, oneClick } = body as { data?: string; oneClick?: boolean };
 					if (!data) {
 						throw new ApiError("Unconfirm data (scheduleId:||:date) is required", 400, "validation");
 					}
 
-					const response = await busApi.unconfirmReservation(data, undefined, oneClick);
+					const response = await busApi.unconfirmReservation(data, sessionCookies, oneClick);
 					return { success: true, data: response.data };
 				} catch (error) {
 					handleApiError(error);
@@ -395,12 +421,15 @@ export function createRoutes(busApi: BusApi, regApi: RegApi, _busApiFactory?: ()
 
 					await ensureValidSession(auth.username);
 
+					const storedSession = storage.getSession(auth.username);
+					const sessionCookies = storedSession?.cookies;
+
 					const { reservationId } = body as { reservationId?: string | number };
 					if (!reservationId) {
 						throw new ApiError("Reservation ID is required", 400, "validation");
 					}
 
-					const response = await busApi.deleteReservation(reservationId);
+					const response = await busApi.deleteReservation(reservationId, sessionCookies);
 					return { success: true, data: response.data };
 				} catch (error) {
 					handleApiError(error);
@@ -420,12 +449,15 @@ export function createRoutes(busApi: BusApi, regApi: RegApi, _busApiFactory?: ()
 
 					await ensureValidSession(auth.username);
 
+					const storedSession = storage.getSession(auth.username);
+					const sessionCookies = storedSession?.cookies;
+
 					const { reservationId } = body as { reservationId?: string | number };
 					if (!reservationId) {
 						throw new ApiError("Reservation ID is required", 400, "validation");
 					}
 
-					const response = await busApi.cancelReservation(reservationId);
+					const response = await busApi.cancelReservation(reservationId, sessionCookies);
 					return { success: true, data: response.data };
 				} catch (error) {
 					handleApiError(error);
@@ -445,6 +477,9 @@ export function createRoutes(busApi: BusApi, regApi: RegApi, _busApiFactory?: ()
 
 					await ensureValidSession(auth.username);
 
+					const storedSession = storage.getSession(auth.username);
+					const sessionCookies = storedSession?.cookies;
+
 					const { scheduleId, scheduleDate, destinationType, oneClick } = body as {
 						scheduleId?: number;
 						scheduleDate?: string;
@@ -455,7 +490,7 @@ export function createRoutes(busApi: BusApi, regApi: RegApi, _busApiFactory?: ()
 						throw new ApiError("scheduleId, scheduleDate, and destinationType are required", 400, "validation");
 					}
 
-					const response = await busApi.bookBus(scheduleId, scheduleDate, destinationType, undefined, oneClick);
+					const response = await busApi.bookBus(scheduleId, scheduleDate, destinationType, sessionCookies, oneClick);
 					return { success: true, bookingId: response.data };
 				} catch (error) {
 					handleApiError(error);
@@ -495,38 +530,60 @@ export function createRoutes(busApi: BusApi, regApi: RegApi, _busApiFactory?: ()
 		{
 			method: "GET",
 			path: "/bus/ticket/qrcode",
-			handler: async (_body, query) => {
+			handler: async (_body, query, headers) => {
 				try {
+					const auth = authenticateRequest(headers || {});
+					if (!auth) {
+						throw new ApiError("Authentication required. Please login first", 401, "auth");
+					}
+
+					await ensureValidSession(auth.username);
+
+					const storedSession = storage.getSession(auth.username);
+					const sessionCookies = storedSession?.cookies;
+
 					const ticketId = query?.get("ticketId");
 					if (!ticketId) {
 						throw new ApiError("ticketId parameter is required", 400, "validation");
 					}
 
 					const showticketUrl = `/users/schedule/showticket/${ticketId}`;
-					const response = await busApi.getTicketQRCodeImage(showticketUrl);
+					const response = await busApi.getTicketQRCodeImage(showticketUrl, sessionCookies);
 					return response.data;
 				} catch (error) {
 					handleApiError(error);
 				}
 			},
+			requiresAuth: true,
 		},
 		{
 			method: "GET",
 			path: "/bus/ticket/info",
-			handler: async (_body, query) => {
+			handler: async (_body, query, headers) => {
 				try {
+					const auth = authenticateRequest(headers || {});
+					if (!auth) {
+						throw new ApiError("Authentication required. Please login first", 401, "auth");
+					}
+
+					await ensureValidSession(auth.username);
+
+					const storedSession = storage.getSession(auth.username);
+					const sessionCookies = storedSession?.cookies;
+
 					const ticketId = query?.get("ticketId");
 					if (!ticketId) {
 						throw new ApiError("ticketId parameter is required", 400, "validation");
 					}
 
 					const showticketUrl = `/users/schedule/showticket/${ticketId}`;
-					const ticketInfo = await busApi.getTicketInfo(showticketUrl);
+					const ticketInfo = await busApi.getTicketInfo(showticketUrl, sessionCookies);
 					return ticketInfo;
 				} catch (error) {
 					handleApiError(error);
 				}
 			},
+			requiresAuth: true,
 		},
 		{
 			method: "POST",
@@ -547,24 +604,36 @@ export function createRoutes(busApi: BusApi, regApi: RegApi, _busApiFactory?: ()
 		{
 			method: "GET",
 			path: "/reg/student",
-			handler: async () => {
+			handler: async (_body, _query, headers) => {
 				try {
+					const auth = authenticateRequest(headers || {});
+					if (!auth) {
+						throw new ApiError("Authentication required. Please login first", 401, "auth");
+					}
+
 					return await regApi.getStudentInfo();
 				} catch (error) {
 					handleApiError(error);
 				}
 			},
+			requiresAuth: true,
 		},
 		{
 			method: "GET",
 			path: "/reg/timetable",
-			handler: async () => {
+			handler: async (_body, _query, headers) => {
 				try {
+					const auth = authenticateRequest(headers || {});
+					if (!auth) {
+						throw new ApiError("Authentication required. Please login first", 401, "auth");
+					}
+
 					return await regApi.getTimeTable();
 				} catch (error) {
 					handleApiError(error);
 				}
 			},
+			requiresAuth: true,
 		},
 	];
 }

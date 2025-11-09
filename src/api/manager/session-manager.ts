@@ -122,8 +122,6 @@ export class SessionManager {
 		this.sessionData = null;
 		this.isLoggingIn = false;
 		this.loginPromise = null;
-
-		SessionManager.removeInstance(this.sessionKey);
 	}
 
 	public async ensureLoggedIn(loginFn: () => Promise<{ cookies: string | string[] }>, username?: string, password?: string): Promise<void> {
@@ -192,14 +190,21 @@ export class SessionManager {
 
 	public static removeInstance(sessionKey: string): void {
 		const instance = SessionManager.instances.get(sessionKey);
+
 		if (instance) {
-			instance.clearSession();
+			instance.sessionData = null;
+			instance.isLoggingIn = false;
+			instance.loginPromise = null;
 			SessionManager.instances.delete(sessionKey);
 		}
 	}
 
 	public static clearAllInstances(): void {
-		SessionManager.instances.forEach((instance) => instance.clearSession());
+		SessionManager.instances.forEach((instance) => {
+			instance.sessionData = null;
+			instance.isLoggingIn = false;
+			instance.loginPromise = null;
+		});
 		SessionManager.instances.clear();
 	}
 
@@ -219,7 +224,7 @@ export class SessionManager {
 		return SessionManager.getInstance(sessionKey, {
 			type: "bus",
 			autoRelogin: true,
-			validityDuration: 5 * 60 * 1000, // 5 minutes
+			validityDuration: 5 * 60 * 1000,
 		});
 	}
 
@@ -227,7 +232,7 @@ export class SessionManager {
 		return SessionManager.getInstance(sessionKey, {
 			type: "reg",
 			autoRelogin: false,
-			validityDuration: 10 * 60 * 1000, // 10 minutes
+			validityDuration: 10 * 60 * 1000,
 		});
 	}
 }

@@ -14,8 +14,7 @@ export class RegApiClient implements RegApi {
 		private client: AxiosInstance,
 		sessionKey: string = "reg",
 	) {
-		const uniqueSessionKey = `${sessionKey}_${Date.now()}_${Math.random().toString(36).substring(2)}`;
-		this.sessionManager = SessionManager.forRegApi(uniqueSessionKey);
+		this.sessionManager = SessionManager.forRegApi(sessionKey);
 	}
 
 	public getSessionManager(): SessionManager {
