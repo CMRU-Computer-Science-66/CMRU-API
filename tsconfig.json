@@ -21,5 +21,11 @@
 		"noUnusedLocals": false,
 		"noUnusedParameters": false,
 		"noPropertyAccessFromIndexSignature": false
-	}
+	},
+	"exclude": [
+		"CMRU_API_STORAGE",
+		"scraper-output",
+		"node_modules",
+		"dist"
+	]
 }
