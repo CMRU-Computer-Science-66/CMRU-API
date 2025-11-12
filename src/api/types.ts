@@ -1,6 +1,6 @@
 import type { ApiServer } from "../config/servers";
-import type { CmruBusApiClient } from "./bus.api";
-import type { RegApiClient } from "./reg.api";
+import type { Bus } from "./bus.api";
+import type { Reg } from "./reg.api";
 
 export interface ApiClientConfig {
 	server?: ApiServer | string;
@@ -12,8 +12,8 @@ export interface ApiClientConfig {
 	};
 }
 
-export type BusApi = CmruBusApiClient;
-export type RegApi = RegApiClient;
+export type BusApi = Bus;
+export type RegApi = Reg;
 
 export type ApiMethodsMap = {
 	[ApiServer.BUS]: BusApi;

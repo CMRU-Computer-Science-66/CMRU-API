@@ -2,8 +2,8 @@ import axios from "axios";
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import { ApiServer } from "../config/servers";
 import { setupInterceptors } from "./interceptors";
-import { CmruBusApiClient } from "./bus.api";
-import { RegApiClient } from "./reg.api";
+import { Bus } from "./bus.api";
+import { Reg } from "./reg.api";
 import type { ApiClientConfig, GetApiMethods } from "./types";
 
 export class ApiClient<T extends ApiServer = ApiServer.BUS> {
@@ -54,10 +54,10 @@ export class ApiClient<T extends ApiServer = ApiServer.BUS> {
 		}
 
 		if (this.serverType === ApiServer.BUS) {
-			const cmruBusApi = new CmruBusApiClient(this.client);
+			const cmruBusApi = new Bus(this.client);
 			this.apiInstance = cmruBusApi as unknown as GetApiMethods<T>;
 		} else if (this.serverType === ApiServer.REG) {
-			const regApi = new RegApiClient(this.client);
+			const regApi = new Reg(this.client);
 			this.apiInstance = regApi as unknown as GetApiMethods<T>;
 		} else {
 			throw new Error(`Unknown server type: ${this.serverType}`);

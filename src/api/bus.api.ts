@@ -4,6 +4,7 @@ import { SessionManager } from "./manager/session-manager";
 import { parseScheduleHTML, type ParsedScheduleData } from "./bus/parser/schedule";
 import { parseAvailableBusHTML, type AvailableBusData } from "./bus/parser/available";
 import { parseTicketHTML, type TicketInfo } from "./bus/parser/ticket";
+import { parseUserProfileHTML, type UserProfileData } from "./bus/parser/profile";
 import type { SessionCredentials } from "../types/session";
 import { generateRandomUserAgent } from "./utilities/user-agent";
 import { formatCookies } from "./manager/cookie-manager";
@@ -15,7 +16,30 @@ export enum UserType {
 	STAFF = "2",
 }
 
-export class CmruBusApiClient implements BusApi {
+/**
+ * คลาสสำหรับเรียกใช้ API ของระบบรถประจำทาง CMRU
+ * ใช้สำหรับจองรถ ดูตารางเดินทาง และตรวจสอบการจอง
+ *
+ * @example
+ * ```typescript
+ * import { ApiClient, ApiServer } from '@cmru-comsci-66/cmru-api';
+ *
+ * const client = new ApiClient(ApiServer.BUS);
+ * const busApi = client.api();
+ *
+ * // เข้าสู่ระบบ
+ * await busApi.login({
+ *   username: '66143000',
+ *   password: 'yourpassword'
+ * });
+ *
+ * // ดูรถที่มี
+ * const availableBuses = await busApi.getAvailableBuses();
+ * console.log(availableBuses);
+ * // Output: { buses: [{ route: 'CMRU-Central', time: '08:00', ... }] }
+ * ```
+ */
+export class Bus implements BusApi {
 	private sessionManager: SessionManager;
 
 	constructor(
@@ -56,10 +80,33 @@ export class CmruBusApiClient implements BusApi {
 		return `${username}:||:${password}:||:${userType}`;
 	}
 
+	/**
+	 * เข้าสู่ระบบรถประจำทาง CMRU
+	 *
+	 * @example
+	 * ```typescript
+	 * await busApi.login({
+	 *   username: '66143000',
+	 *   password: 'yourpassword'
+	 * });
+	 * ```
+	 */
 	async login<T = unknown>(credentials: SessionCredentials): Promise<AxiosResponse<T>> {
 		return this.loginWith<T>(credentials, UserType.STUDENT);
 	}
 
+	/**
+	 * เข้าสู่ระบบรถประจำทาง CMRU ด้วยประเภทผู้ใช้ที่ระบุ
+	 *
+	 * @example
+	 * ```typescript
+	 * // เข้าสู่ระบบในฐานะนักศึกษา
+	 * await busApi.loginWith({ username: '66143000', password: 'pass' }, UserType.STUDENT);
+	 *
+	 * // เข้าสู่ระบบในฐานะเจ้าหน้าที่
+	 * await busApi.loginWith({ username: 'staff001', password: 'pass' }, UserType.STAFF);
+	 * ```
+	 */
 	async loginWith<T = unknown>(credentials: SessionCredentials, userType: UserType = UserType.STUDENT): Promise<AxiosResponse<T>> {
 		const response = await this.getSession<T>(credentials.username, credentials.password, userType);
 
@@ -96,6 +143,17 @@ export class CmruBusApiClient implements BusApi {
 		});
 	}
 
+	/**
+	 * ตรวจสอบว่า session ยังใช้งานได้หรือไม่
+	 *
+	 * @example
+	 * ```typescript
+	 * const isValid = await busApi.validateSession();
+	 * console.log(isValid);
+	 * // Output: true (ถ้า session ยังใช้ได้)
+	 * // Output: false (ถ้า session หมดอายุ)
+	 * ```
+	 */
 	public async validateSession(): Promise<boolean> {
 		try {
 			if (!this.sessionManager.hasSession()) {
@@ -275,6 +333,53 @@ export class CmruBusApiClient implements BusApi {
 		return response;
 	}
 
+	/**
+	 * ดึงตารางการจองรถ
+	 *
+	 * @example
+	 * ```typescript
+	 * const schedule = await busApi.getSchedule();
+	 * console.log(schedule);
+	 * // Output: {
+	 * //   reservations: [
+	 * //     {
+	 * //       id: 'R123',
+	 * //       route: 'CMRU-Central',
+	 * //       date: '2024-12-15',
+	 * //       time: '08:00',
+	 * //       status: 'confirmed'
+	 * //     }
+	 * //   ]
+	 * // }
+	 * ```
+	 */
+	/**
+	 * ดึงข้อมูลตารางการจองรถประจำทาง
+	 *
+	 * @example
+	 * ```typescript
+	 * const schedule = await busApi.getSchedule();
+	 * console.log(schedule);
+	 * // Output:
+	 * // {
+	 * //   userInfo: { name: "นายจอห์น โด" },
+	 * //   totalReservations: 5,
+	 * //   currentPage: 1,
+	 * //   totalPages: 1,
+	 * //   hasNextPage: false,
+	 * //   hasPrevPage: false,
+	 * //   reservations: [
+	 * //     {
+	 * //       id: "12345",
+	 * //       route: "CMRU-Central",
+	 * //       date: "2025-11-15",
+	 * //       time: "08:00",
+	 * //       status: "confirmed"
+	 * //     }
+	 * //   ]
+	 * // }
+	 * ```
+	 */
 	public async getSchedule(cookies?: string | string[], page: number = 1, perPage: number = 10): Promise<ParsedScheduleData> {
 		const allReservations: ParsedScheduleData["reservations"] = [];
 		let totalReservations = 0;
@@ -322,6 +427,20 @@ export class CmruBusApiClient implements BusApi {
 		};
 	}
 
+	/**
+	 * ยืนยันการจองรถประจำทาง
+	 *
+	 * @example
+	 * ```typescript
+	 * const schedule = await busApi.getSchedule();
+	 * const reservation = schedule.reservations[0];
+	 *
+	 * if (reservation.confirmation.canConfirm) {
+	 *   await busApi.confirmReservation(reservation.confirmation.confirmData);
+	 *   console.log("ยืนยันการจองสำเร็จ");
+	 * }
+	 * ```
+	 */
 	public async confirmReservation(data: string, cookies?: string | string[]): Promise<AxiosResponse<string>> {
 		if (!cookies) {
 			await this.ensureAuthenticated();
@@ -360,10 +479,36 @@ export class CmruBusApiClient implements BusApi {
 		return response;
 	}
 
+	/**
+	 * ยกเลิกการจองรถประจำทาง
+	 *
+	 * @example
+	 * ```typescript
+	 * const schedule = await busApi.getSchedule();
+	 * const reservation = schedule.reservations[0];
+	 *
+	 * await busApi.cancelReservation(reservation.actions.reservationId);
+	 * console.log("ยกเลิกการจองสำเร็จ");
+	 * ```
+	 */
 	public async cancelReservation(reservationId: string | number, cookies?: string | string[]): Promise<AxiosResponse<string>> {
 		return this.deleteReservation(reservationId, cookies);
 	}
 
+	/**
+	 * ยกเลิกการยืนยันการจอง
+	 *
+	 * @example
+	 * ```typescript
+	 * const schedule = await busApi.getSchedule();
+	 * const reservation = schedule.reservations[0];
+	 *
+	 * if (reservation.confirmation.canUnconfirm) {
+	 *   await busApi.unconfirmReservation(reservation.confirmation.unconfirmData);
+	 *   console.log("ยกเลิกการยืนยันสำเร็จ");
+	 * }
+	 * ```
+	 */
 	public async unconfirmReservation(data: string, cookies?: string | string[], oneClick: boolean = false): Promise<AxiosResponse<string>> {
 		if (!cookies) {
 			await this.ensureAuthenticated();
@@ -504,12 +649,70 @@ export class CmruBusApiClient implements BusApi {
 		return response;
 	}
 
+	/**
+	 * ดึงรายการรถที่มีให้บริการ
+	 *
+	 * @example
+	 * ```typescript
+	 * const availableBuses = await busApi.getAvailableBuses();
+	 * console.log(availableBuses);
+	 * // Output: {
+	 * //   buses: [
+	 * //     {
+	 * //       route: 'CMRU-Central Plaza',
+	 * //       time: '08:00',
+	 * //       availableSeats: 15,
+	 * //       totalSeats: 40
+	 * //     }
+	 * //   ]
+	 * // }
+	 * ```
+	 */
+	/**
+	 * ดึงข้อมูลรถที่มีให้จองในเดือนที่ระบุ
+	 *
+	 * @example
+	 * ```typescript
+	 * const availableBuses = await busApi.getAvailableBuses('2025-11');
+	 * console.log(availableBuses);
+	 * // Output:
+	 * // {
+	 * //   currentMonth: "2025-11",
+	 * //   totalAvailable: 30,
+	 * //   availableSchedules: [
+	 * //     {
+	 * //       id: 1450,
+	 * //       title: "( ไปแม่ริม )",
+	 * //       destination: "แม่ริม",
+	 * //       destinationType: 1,
+	 * //       departureDate: "2025-11-15",
+	 * //       departureTime: "08:00",
+	 * //       canReserve: true,
+	 * //       isReserved: false
+	 * //     }
+	 * //   ]
+	 * // }
+	 * ```
+	 */
 	public async getAvailableBuses(month?: string, cookies?: string | string[]): Promise<AvailableBusData> {
 		const response = await this.getAvailableBusesRaw<string>(month, cookies);
 		const htmlData = response.data;
 		return parseAvailableBusHTML(htmlData);
 	}
 
+	/**
+	 * จองรถประจำทาง
+	 *
+	 * @example
+	 * ```typescript
+	 * // จองรถไปแม่ริม
+	 * await busApi.bookBus(1450, '2025-11-15', 1);
+	 *
+	 * // จองรถไปเวียงบัวพร้อมยืนยันอัตโนมัติ
+	 * await busApi.bookBus(1451, '2025-11-16', 2, undefined, true);
+	 * // Output: จองสำเร็จและยืนยันแล้ว
+	 * ```
+	 */
 	public async bookBus(scheduleId: number, scheduleDate: string, destinationType: 1 | 2, cookies?: string | string[], oneClick: boolean = false): Promise<AxiosResponse<number>> {
 		if (!cookies) {
 			await this.ensureAuthenticated();
@@ -616,12 +819,53 @@ export class CmruBusApiClient implements BusApi {
 		return response;
 	}
 
+	/**
+	 * ดึงข้อมูลตั้วขึ้นรถประจำทาง
+	 *
+	 * @example
+	 * ```typescript
+	 * const schedule = await busApi.getSchedule();
+	 * const ticketUrl = schedule.reservations[0].actions.ticketUrl;
+	 *
+	 * const ticketInfo = await busApi.getTicketInfo(ticketUrl);
+	 * console.log(ticketInfo);
+	 * // Output:
+	 * // {
+	 * //   destination: { name: "แม่ริม", type: "แม่ริม" },
+	 * //   schedule: {
+	 * //     day: "วันจันทร์",
+	 * //     date: "15 พฤศจิกายน 2568",
+	 * //     time: "08:00",
+	 * //     fullSchedule: "วันจันทร์, 15 พฤศจิกายน 2568 เวลา 08:00"
+	 * //   },
+	 * //   qrCode: { imageUrl: "/qrcode/generate?data=..." },
+	 * //   student: { studentId: "66143000", name: "นายจอห์น โด" }
+	 * // }
+	 * ```
+	 */
 	public async getTicketInfo(showticketUrl: string, cookies?: string | string[]): Promise<TicketInfo> {
 		const response = await this.getTicket<string>(showticketUrl, cookies);
 		const htmlData = response.data;
 		return parseTicketHTML(htmlData);
 	}
 
+	/**
+	 * ดาวน์โหลดรูป QR Code ของตั้วรถประจำทาง
+	 *
+	 * @example
+	 * ```typescript
+	 * const schedule = await busApi.getSchedule();
+	 * const ticketUrl = schedule.reservations[0].actions.ticketUrl;
+	 *
+	 * const qrImage = await busApi.getTicketQRCodeImage(ticketUrl);
+	 * const buffer = qrImage.data;
+	 *
+	 * // บันทึกเป็นไฟล์
+	 * import fs from 'fs';
+	 * fs.writeFileSync('qr-code.png', buffer);
+	 * // Output: ไฟล์ qr-code.png ถูกสร้างขึ้น
+	 * ```
+	 */
 	public async getTicketQRCodeImage(showticketUrl: string, cookies?: string | string[]): Promise<AxiosResponse<Buffer>> {
 		const ticketInfo = await this.getTicketInfo(showticketUrl, cookies);
 		const qrImageUrl = ticketInfo.qrCode.imageUrl;
@@ -657,6 +901,51 @@ export class CmruBusApiClient implements BusApi {
 
 		if (response.status !== 200) {
 			throw new Error(`Failed to get QR code image: ${response.status}`);
+		}
+
+		return response;
+	}
+
+	public async getUserProfile(cookies?: string | string[]): Promise<UserProfileData> {
+		const response = await this.getUserProfileRaw<string>(cookies);
+		return parseUserProfileHTML(response.data);
+	}
+
+	public async getUserProfileRaw<T = unknown>(cookies?: string | string[]): Promise<AxiosResponse<T>> {
+		if (!cookies) {
+			await this.ensureAuthenticated();
+		}
+
+		const cookiesToUse = cookies || this.sessionManager.getCookies();
+
+		if (!cookiesToUse) {
+			throw new Error("No valid session found. Please login first.");
+		}
+
+		const cookieString = formatCookies(cookiesToUse);
+		const headers = this.generateHeaders();
+		const config: AxiosRequestConfig = {
+			withCredentials: true,
+			headers: {
+				...headers,
+				Cookie: cookieString,
+				Referer: "https://cmrubus.cmru.ac.th/",
+			},
+			maxRedirects: 0,
+			validateStatus: (status) => status >= 200 && status < 400,
+		};
+
+		const response = await this.client.get<T>("/user/profile", config);
+
+		if (response.status === 302 || response.status === 301) {
+			const location = response.headers["location"];
+			if (location?.includes("login")) {
+				throw new Error("Session expired. Please login again.");
+			}
+		}
+
+		if (response.status !== 200) {
+			throw new Error(`Failed to get user profile: ${response.status}`);
 		}
 
 		return response;

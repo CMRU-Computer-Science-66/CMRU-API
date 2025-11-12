@@ -36,14 +36,20 @@ export function parseTimetable(html: string): TimetableData {
 		result.studentName = studentMatch[2].trim();
 	}
 
-	$("select[name=ACADYEAR] option[selected]").each((_index, elem) => {
-		result.academicYear = $(elem).val() as string;
-	});
+	const bodyHtml = $("body").html() || "";
+	const selOpt = $("select[name=ACADYEAR] option[selected]").first();
 
-	const pageHtml = $("body").html() || "";
-	const semesterMatch = pageHtml.match(/<b>(\d+)<\/b>/i);
-	if (semesterMatch?.[1]) {
-		result.semester = semesterMatch[1];
+	if (selOpt.length > 0) {
+		result.academicYear = selOpt.val() as string;
+	} else {
+		const yearParam = bodyHtml.match(/ACADYEAR=\s*(\d{4})/i) || bodyHtml.match(/ACADYEAR%3D(\d{4})/i) || bodyHtml.match(/ACADYEAR\s*[:=]\s*(\d{4})/i);
+		if (yearParam?.[1]) result.academicYear = yearParam[1];
+	}
+
+	if (!result.semester) {
+		const semParam =
+			bodyHtml.match(/gradesemester=\s*(\d)/i) || bodyHtml.match(/gradesemester%3D(\d)/i) || bodyHtml.match(/ภาคเรียน(?:ที่)?\s*(\d)/i) || bodyHtml.match(/semester\s*(\d)/i);
+		if (semParam?.[1]) result.semester = semParam[1];
 	}
 
 	let foundCourseTable = false;
