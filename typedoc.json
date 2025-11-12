@@ -1,21 +1,31 @@
 {
 	"$schema": "https://typedoc.org/schema.json",
 	"entryPoints": [
-		"./src"
+		"./src/api/index.ts"
 	],
-	"entryPointStrategy": "expand",
 	"out": "public",
 	"excludePrivate": true,
-	"excludeProtected": false,
+	"excludeProtected": true,
 	"excludeExternals": true,
+	"excludeInternal": true,
+	"excludeNotDocumented": true,
 	"readme": "README.md",
 	"includeVersion": true,
 	"sort": [
-		"source-order"
+		"alphabetical"
 	],
+	"groupReferencesByType": true,
 	"categorizeByGroup": true,
 	"navigationLinks": {
 		"GitHub": "https://github.com/CMRU-Computer-Science-66/CMRU-API"
 	},
-	"hideGenerator": true
+	"hideGenerator": true,
+	"validation": {
+		"notExported": false,
+		"invalidLink": true,
+		"notDocumented": false
+	},
+	"externalPattern": [
+		"**/node_modules/**"
+	]
 }
